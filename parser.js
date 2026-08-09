@@ -189,7 +189,7 @@ function searchInteractions(text) {
   }
 
   // Deduplication
-  const championMap = new Map<string, any>();
+  const championMap = new Map();
   for (const item of found) {
     const key = `${item.visit_date}|${item.mech_sig}|${item.sugg_sig}`;
     const incumbent = championMap.get(key);
@@ -490,7 +490,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
   }
 
   // Deduplicate and precheck latest items grouped by drugKey
-  const groups = new Map<string, typeof tempItems>();
+  const groups = new Map();
   for (const item of tempItems) {
     if (!groups.has(item.drugKey)) {
       groups.set(item.drugKey, []);
