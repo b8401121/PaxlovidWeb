@@ -1,16 +1,7 @@
-import medicalData from "../medical_data.json";
-import { proh, dont, pote, safe as htaSafe, safe2 as htaSafe2, DICT } from "./paxlovidHtaData";
+import { medicalData, proh, dont, pote, safe as htaSafe, safe2 as htaSafe2, DICT } from "./data.js";
 
-export interface MatchedInteraction {
-  text: string;
-  generic: string;
-  brand: string;
-  user_drug_str: string;
-  visit_date: string;
-}
-
-export function searchInteractions(text: string): MatchedInteraction[] {
-  const found: any[] = [];
+export function searchInteractions(text) {
+  const found = [];
   if (!text || !text.trim()) {
     return found;
   }
@@ -21,7 +12,7 @@ export function searchInteractions(text: string): MatchedInteraction[] {
   ];
 
   const linesRaw = text.split(/[\r\n]+/).map(s => s.trim()).filter(s => s.length > 0);
-  const lines: string[] = [];
+  const lines = [];
 
   for (const rL of linesRaw) {
     if (blacklist.some(bad => rL.includes(bad))) {
@@ -226,27 +217,9 @@ export function searchInteractions(text: string): MatchedInteraction[] {
   return finalList;
 }
 
-export interface ParsedLineItem {
-  id: string;
-  originalLine: string;
-  cleanLineScreen: string;
-  cleanLinePrint: string;
-  selectedForPrint: boolean;
-  severity: "contraindicated" | "interactive" | "safe" | "unknown";
-  genericName?: string;
-  brandName?: string;
-  hasCode: boolean;
-  isDuplicate?: boolean;
-  visitDate?: string;
-  dateKey?: string;
-}
 
-export interface CategorizedResults {
-  contraindicated: ParsedLineItem[];
-  interactive: ParsedLineItem[];
-  safe: ParsedLineItem[];
-  unknown: ParsedLineItem[];
-}
+
+
 
 const BZD_GENERICS = [
   "midazolam", "triazolam", "diazepam", "clonazepam", "chlordiazepoxide", 
