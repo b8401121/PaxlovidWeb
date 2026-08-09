@@ -495,13 +495,13 @@ function parseAndCategorizeCloudPrescription(rawText) {
     if (!groups.has(item.drugKey)) {
       groups.set(item.drugKey, []);
     }
-    groups.get(item.drugKey)!.push(item);
+    groups.get(item.drugKey).push(item);
   }
 
   for (const [key, group] of groups.entries()) {
     if (group.length > 1) {
       // Sort in descending order of dateKey so the latest is first
-      group.sort((a, b) => b.dateKey!.localeCompare(a.dateKey!));
+      group.sort((a, b) => b.dateKey.localeCompare(a.dateKey));
       
       // Mark all of them as duplicate
       group.forEach((item, index) => {
