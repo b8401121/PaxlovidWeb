@@ -405,7 +405,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
     const matchedProh = proh.find(k => blockLower.includes(k));
     const matchedDont = dont.find(k => blockLower.includes(k));
     const matchedPote = pote.find(k => blockLower.includes(k));
-    const matchedSafe = htaSafe.find(k => blockLower.includes(k)) || htaSafe2.find(k => blockLower.includes(k));
+    const matchedSafe = safe.find(k => blockLower.includes(k)) || safe2.find(k => blockLower.includes(k));
 
     let severity = "unknown";
     let matchedKw = "";

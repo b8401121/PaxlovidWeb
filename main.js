@@ -205,8 +205,8 @@ document.addEventListener('DOMContentLoaded', () => {
         severityLabel = '❌ 建議避免'; tagClass = 'danger';
       } else if (pote && pote.some(p => kw.includes(p))) {
         severityLabel = '⚠️ 潛在交互'; tagClass = 'warning';
-      } else if ((htaSafe && htaSafe.some(s => kw.includes(s))) ||
-                 (htaSafe2 && htaSafe2.some(s => kw.includes(s)))) {
+      } else if ((safe && safe.some(s => kw.includes(s))) ||
+                 (safe2 && safe2.some(s => kw.includes(s)))) {
         severityLabel = '✅ 安全'; tagClass = 'safe';
       }
 
