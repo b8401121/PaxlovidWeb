@@ -225,7 +225,7 @@ const BZD_GENERICS = [
   "estazolam", "brotizolam", "bromazepam", "flunitrazepam", "fludiazepam", "etizolam"
 ];
 
-const BZD_BRAND_TO_GENERIC: { [brand: string]: string } = {
+const BZD_BRAND_TO_GENERIC = {
   "lendormin": "brotizolam",
   "lendorm": "brotizolam",
   "戀多眠": "brotizolam",
@@ -407,7 +407,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
     const matchedPote = pote.find(k => blockLower.includes(k));
     const matchedSafe = htaSafe.find(k => blockLower.includes(k)) || htaSafe2.find(k => blockLower.includes(k));
 
-    let severity: "contraindicated" | "interactive" | "safe" | "unknown" = "unknown";
+    let severity = "unknown";
     let matchedKw = "";
 
     if (matchedProh) {

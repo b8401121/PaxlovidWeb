@@ -270,6 +270,13 @@ h1 {
   color: var(--text-secondary);
 }
 
+.drug-sugg {
+  font-size: 0.85rem;
+  color: var(--primary);
+  margin-top: 4px;
+  font-style: italic;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
