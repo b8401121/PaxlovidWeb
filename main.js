@@ -45,10 +45,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (text) {
         searchInput.value = text;
         handleSearch(text);
+      } else if (searchInput.value.trim()) {
+        handleSearch(searchInput.value);
       }
     } catch (e) {
       console.warn("Clipboard access failed:", e);
-      alert("無法讀取剪貼簿，請手動貼上。");
+      // Fallback: if clipboard fails, but there is text in the box, analyze it
+      if (searchInput.value.trim()) {
+        handleSearch(searchInput.value);
+      } else {
+        alert("您的瀏覽器阻擋了自動讀取剪貼簿的權限。\n\n請在上方框框中直接「按右鍵貼上」或「Ctrl+V」手動貼上藥歷文字，系統會自動分析！");
+      }
     }
   });
 
