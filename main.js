@@ -1,6 +1,3 @@
-import { searchInteractions, parseAndCategorizeCloudPrescription } from './parser.js';
-import { proh, dont, pote, safe as htaSafe, safe2 as htaSafe2, DICT } from './data.js';
-
 document.addEventListener('DOMContentLoaded', () => {
   // Theme Switching
   const themes = ['light', 'eyecare', 'dark'];

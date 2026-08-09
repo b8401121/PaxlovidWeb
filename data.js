@@ -1,4 +1,4 @@
-export const medicalData = {
+const medicalData = {
   "drug_stability": [
     {
       "name": "Alprostadil (Prostin VR) 500mcg/mL/Amp",
@@ -3185,7 +3185,7 @@ export const medicalData = {
 };
 
 // Export official drug datasets and DICT directly from E:\paxlovid.hta
-export const proh = [
+const proh = [
   "paxlovid",
   "molnupiravir",
   "veklury",
@@ -3228,7 +3228,7 @@ export const proh = [
   "phenobarbitone",
   "phenytoin"
 ];
-export const dont = [
+const dont = [
   "umbralisib",
   "sonidegib",
   "pralsetinib",
@@ -3350,7 +3350,7 @@ export const dont = [
   "venetoclax",
   "voclosporin"
 ];
-export const pote = [
+const pote = [
   "brinzolamide",
   "cabergoline",
   "cabozantinib",
@@ -3528,7 +3528,7 @@ export const pote = [
   "zolpidem",
   "zotepine"
 ];
-export const safe = [
+const safe = [
   "norethisterone",
   "norethindrone",
   "norgestrel",
@@ -4172,7 +4172,7 @@ export const safe = [
   "leflunomide",
   "ozanimod"
 ];
-export const safe2 = [
+const safe2 = [
   "biktarvy",
   "dovato",
   "juluca",
@@ -4181,7 +4181,7 @@ export const safe2 = [
   "odefsey",
   "prochlorperazine"
 ];
-export const DICT = {
+const DICT = {
   "alprazolam": "{若不喘沒呼吸抑制疑慮可考慮改成沒交互作用的口服ativan}此藥藥效會變強2-5倍,故減量或停用到吃完Paxlovid的3天後",
   "gestodene": "影嚮小,維持原劑量",
   "norgestimate": "影嚮小,維持原劑量",

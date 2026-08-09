@@ -1,6 +1,4 @@
-import { medicalData, proh, dont, pote, safe as htaSafe, safe2 as htaSafe2, DICT } from "./data.js";
-
-export function searchInteractions(text) {
+function searchInteractions(text) {
   const found = [];
   if (!text || !text.trim()) {
     return found;
@@ -286,7 +284,7 @@ const SAFE_KEYWORDS = [
   "agomelatine"
 ];
 
-export function parseAndCategorizeCloudPrescription(rawText: string): CloudPrescriptionResult {
+function parseAndCategorizeCloudPrescription(rawText: string): CloudPrescriptionResult {
   const contraindicated: ParsedLineItem[] = [];
   const interactive: ParsedLineItem[] = [];
   const safe: ParsedLineItem[] = [];
