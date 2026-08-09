@@ -284,11 +284,11 @@ const SAFE_KEYWORDS = [
   "agomelatine"
 ];
 
-function parseAndCategorizeCloudPrescription(rawText: string): CloudPrescriptionResult {
-  const contraindicated: ParsedLineItem[] = [];
-  const interactive: ParsedLineItem[] = [];
-  const safe: ParsedLineItem[] = [];
-  const unknown: ParsedLineItem[] = [];
+function parseAndCategorizeCloudPrescription(rawText) {
+  const contraindicated = [];
+  const interactive = [];
+  const safe = [];
+  const unknown = [];
 
   if (!rawText || !rawText.trim()) {
     return { contraindicated, interactive, safe, unknown };
@@ -328,7 +328,7 @@ function parseAndCategorizeCloudPrescription(rawText: string): CloudPrescription
   const codeRe = /^[A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3}(?:（[^）]+）|\([^)]+\))?$/;
   const dateRe = /^\d{2,4}[/\.-]\d{1,2}[/\.-]\d{1,2}/;
 
-  const tempItems: (ParsedLineItem & { drugKey: string })[] = [];
+  const tempItems = [];
 
   for (let idx = 0; idx < blocks.length; idx++) {
     const block = blocks[idx];
