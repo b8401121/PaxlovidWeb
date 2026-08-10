@@ -335,7 +335,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
   //   C: {院所代碼}\t{主診斷}
   //   D: {ATC3}\t...\t{藥品代碼}\t{藥品名稱}\t{就醫日期}\t...   ← 含藥品代碼
   // 我們往回找最近的 A 行來得知來源
-  const itemLineRe = /^\d+\t(.+)/;
+  const itemLineRe = /^(\d{1,3})\t(.+)/;   // 序號只有 1-3 位數，院所代碼是 10 位數不會誤判
   const visitTypeRe = /^(門診|住診|藥局)$/;
   const sourceMap = []; // sourceMap[idx] = { source, visitType }
   let lastSource = '';
@@ -343,7 +343,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i].trim();
     const m = b.match(itemLineRe);
-    if (m) { lastSource = m[1].trim(); }
+    if (m) { lastSource = m[2].trim(); }
     if (visitTypeRe.test(b)) { lastVisitType = b.trim(); }
     sourceMap[i] = { source: lastSource, visitType: lastVisitType };
   }
