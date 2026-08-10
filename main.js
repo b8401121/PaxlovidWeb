@@ -433,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tr { page-break-inside:avoid; }
     }
     @page { size:A4; margin:15mm 12mm; }
-    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Microsoft JhengHei",Arial,sans-serif; color:#1e293b; line-height:1.5; margin:0; padding:10px; }
+    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Microsoft JhengHei",Arial,sans-serif; color:#1e293b; line-height:1.5; margin:0; padding:10px; outline: none; }
     .header-container { border-bottom:2.5px solid #0f172a; padding-bottom:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:flex-end; }
     .main-title { font-size:15pt; font-weight:800; color:#0f172a; margin:0; }
     .sub-title { font-size:9pt; color:#475569; margin:2px 0 0 0; }
@@ -463,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
     .footer { margin-top:30px; font-size:8pt; color:#64748b; border-top:1px solid #e2e8f0; padding-top:10px; text-align:center; line-height:1.5; }
   </style>
 </head>
-<body>
+<body contenteditable="true" spellcheck="false">
   <div class="header-container">
     <div style="display:flex;align-items:center;gap:12px">
       <div>
