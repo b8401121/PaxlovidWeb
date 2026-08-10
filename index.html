@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Paxlovid 用藥交互作用警示篩選系統</title>
+  <title>Paxlovid 用藥交互作用警示篩選系統 ‧ 吳鎮宇耳鼻喉科診所</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,10 +28,13 @@
 
     <main class="app-main">
       <div class="card input-area">
-        <textarea id="search-input" placeholder="請在此貼上健保雲端藥歷文字... (自動過濾非藥品資訊)"></textarea>
-        <div style="display: flex; gap: 12px;">
-          <button id="btn-paste" class="btn-primary">📋 一鍵貼上雲端藥歷 / 分析</button>
+        <h2 style="margin:0 0 12px 0; font-size:1.1rem">💊 Paxlovid 交互作用比對引擎</h2>
+        <textarea id="search-input" placeholder="請在此貼上健保雲端藥歷文字... 貼上後將自動分析，也可直接輸入藥名查詢。"></textarea>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="btn-paste" class="btn-primary">📋 貼上雲端藥歷</button>
           <button id="btn-clear" class="btn-secondary">🧹 清除重置</button>
+          <button id="btn-print" class="btn-primary" disabled>🖨️ 列印衛教單</button>
+          <button id="btn-copy-text" class="btn-secondary" disabled>📋 複製文字報告</button>
         </div>
       </div>
 
@@ -48,7 +51,7 @@
         </div>
 
         <div id="tab-manual" class="tab-content">
-          <div style="overflow-x: auto;">
+          <div style="overflow-x:auto">
             <table>
               <thead>
                 <tr>
@@ -60,7 +63,6 @@
                 </tr>
               </thead>
               <tbody id="manual-table-body">
-                <!-- 動態插入表格資料 -->
               </tbody>
             </table>
           </div>
@@ -69,7 +71,7 @@
     </main>
 
     <footer class="app-footer">
-      Paxlovid Drug-Drug Interaction Checker | 吳鎮宇耳鼻喉科診所 專用獨立版
+      Paxlovid Drug-Drug Interaction Checker | 吳鎮宇耳鼻喉科診所 專用網頁版
     </footer>
   </div>
 
