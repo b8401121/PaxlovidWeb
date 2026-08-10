@@ -1,3 +1,53 @@
+// ─── 登入驗證 (sessionStorage：關閉分頁即需重新登入) ─────────────────────────
+(function() {
+  const CRED = { user: 'wuent', pass: '033787876' };
+  const overlay   = document.getElementById('login-overlay');
+  const loginForm = document.getElementById('login-form');
+  const loginErr  = document.getElementById('login-error');
+  const btnLogout = document.getElementById('btn-logout');
+
+  function isLoggedIn() {
+    return sessionStorage.getItem('paxlovid_auth') === '1';
+  }
+
+  function showApp() {
+    overlay.classList.add('hidden');
+  }
+
+  function showLogin() {
+    overlay.classList.remove('hidden');
+    document.getElementById('login-user').value = '';
+    document.getElementById('login-pass').value = '';
+    loginErr.classList.add('hidden');
+  }
+
+  // On load: check session
+  if (isLoggedIn()) {
+    showApp();
+  }
+  // else overlay is already visible (default in HTML)
+
+  loginForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const u = document.getElementById('login-user').value.trim();
+    const p = document.getElementById('login-pass').value;
+    if (u === CRED.user && p === CRED.pass) {
+      sessionStorage.setItem('paxlovid_auth', '1');
+      loginErr.classList.add('hidden');
+      showApp();
+    } else {
+      loginErr.classList.remove('hidden');
+      document.getElementById('login-pass').value = '';
+      document.getElementById('login-pass').focus();
+    }
+  });
+
+  btnLogout.addEventListener('click', () => {
+    sessionStorage.removeItem('paxlovid_auth');
+    showLogin();
+  });
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
   // ─── 全域狀態 ─────────────────────────────────────────────────────────────
   let currentCat = null; // { contraindicated:[], interactive:[], safe:[], unknown:[] }
