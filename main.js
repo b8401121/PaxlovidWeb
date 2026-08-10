@@ -85,6 +85,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const categoryResults  = document.getElementById('category-results');
   const manualTableBody  = document.getElementById('manual-table-body');
 
+  const ppModal          = document.getElementById('print-preview-modal');
+  const ppFrame          = document.getElementById('print-preview-frame');
+  const btnDoPrint       = document.getElementById('btn-do-print');
+  const btnClosePreview  = document.getElementById('btn-close-preview');
+
   // ─── Paste ──────────────────────────────────────────────────────────────────
   btnPaste.addEventListener('click', async () => {
     try {
@@ -109,20 +114,28 @@ document.addEventListener('DOMContentLoaded', () => {
   // ─── Live type ─────────────────────────────────────────────────────────────
   searchInput.addEventListener('input', e => handleSearch(e.target.value));
 
-  // ─── Print ─────────────────────────────────────────────────────────────────
+  // ─── Print & Preview ─────────────────────────────────────────────────────────
   btnPrint.addEventListener('click', () => {
     if (!currentCat) return;
     const html = generatePrintHtml(currentCat);
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
-    document.body.appendChild(iframe);
-    const doc = iframe.contentWindow.document;
-    doc.open(); doc.write(html); doc.close();
-    setTimeout(() => {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-      setTimeout(() => document.body.removeChild(iframe), 1000);
-    }, 300);
+    ppModal.classList.remove('hidden');
+    
+    // Write into the preview iframe
+    const doc = ppFrame.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+  });
+
+  btnDoPrint.addEventListener('click', () => {
+    if (ppFrame.contentWindow) {
+      ppFrame.contentWindow.focus();
+      ppFrame.contentWindow.print();
+    }
+  });
+
+  btnClosePreview.addEventListener('click', () => {
+    ppModal.classList.add('hidden');
   });
 
   // ─── Copy text ─────────────────────────────────────────────────────────────
@@ -466,10 +479,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   <table class="info-grid">
     <tr>
-      <td style="width:25%"><strong>病人姓名:</strong> ____________________</td>
-      <td style="width:25%"><strong>病歷號碼:</strong> ____________________</td>
+      <td style="width:25%"><strong>病人姓名:</strong> <span contenteditable="true" style="border-bottom:1px solid #ccc;min-width:80px;display:inline-block">___________</span></td>
+      <td style="width:25%"><strong>病歷號碼:</strong> <span contenteditable="true" style="border-bottom:1px solid #ccc;min-width:80px;display:inline-block">___________</span></td>
       <td style="width:25%"><strong>列印日期:</strong> ${printDate}</td>
-      <td style="width:25%"><strong>處方醫師/藥師:</strong> ____________________</td>
+      <td style="width:25%"><strong>處方醫師/藥師:</strong> <span contenteditable="true" style="border-bottom:1px solid #ccc;min-width:80px;display:inline-block">___________</span></td>
     </tr>
   </table>
 

@@ -404,19 +404,98 @@ h1 {
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
 th, td {
-  padding: 12px;
+  border: 1px solid var(--border);
+  padding: 10px;
   text-align: left;
-  border-bottom: 1px solid var(--border);
 }
 
 th {
+  background-color: rgba(0,0,0,0.03);
   font-weight: 600;
-  color: var(--text-secondary);
-  background-color: var(--bg-main);
+}
+
+tr:nth-child(even) {
+  background-color: rgba(0,0,0,0.015);
+}
+
+/* ─── Print Preview Modal ────────────────────────────────────────────────── */
+#print-preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+}
+
+#print-preview-modal.hidden {
+  display: none;
+}
+
+.pp-overlay {
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pp-toolbar {
+  background-color: #f8fafc;
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 10;
+}
+
+.pp-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pp-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pp-hint {
+  font-size: 0.9rem;
+  color: #0d9488;
+  background: #ccfbf1;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.pp-toolbar-right {
+  display: flex;
+  gap: 12px;
+}
+
+.pp-frame-wrap {
+  flex: 1;
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#print-preview-frame {
+  width: 100%;
+  max-width: 210mm; /* A4 width */
+  height: 100%;
+  background: white;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
 }
 
 tr:hover {

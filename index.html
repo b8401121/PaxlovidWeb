@@ -101,6 +101,25 @@
     </footer>
   </div>
 
+  <!-- ─── 列印預覽 Modal ───────────────────────────────────────────────── -->
+  <div id="print-preview-modal" class="hidden">
+    <div class="pp-overlay">
+      <div class="pp-toolbar">
+        <div class="pp-toolbar-left">
+          <span class="pp-title">🖨️ 列印預覽</span>
+          <span class="pp-hint">💡 點選內容可直接修改（如填入病人姓名、病歷號）</span>
+        </div>
+        <div class="pp-toolbar-right">
+          <button id="btn-do-print" class="btn-primary">🖨️ 確認列印</button>
+          <button id="btn-close-preview" class="btn-secondary">✖ 關閉</button>
+        </div>
+      </div>
+      <div class="pp-frame-wrap">
+        <iframe id="print-preview-frame" title="列印預覽"></iframe>
+      </div>
+    </div>
+  </div>
+
   <script src="data.js"></script>
   <script src="parser.js"></script>
   <script src="main.js"></script>
