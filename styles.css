@@ -380,6 +380,27 @@ h1 {
   font-style: italic;
 }
 
+.source-badge {
+  display: inline-block;
+  background-color: var(--primary);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.date-badge {
+  display: inline-block;
+  background-color: var(--bg-main);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

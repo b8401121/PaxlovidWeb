@@ -193,11 +193,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const card = document.createElement('div');
         card.className = 'drug-card';
 
-        const dateStr    = item.visitDate    ? `[${item.visitDate}] `  : '';
-        const genericStr = item.genericName  ? item.genericName         : '';
-        const brandStr   = item.brandName    ? item.brandName           : '';
-        const headline   = genericStr || brandStr || item.originalLine  || '';
+        const dateStr    = item.visitDate    ? item.visitDate            : '';
+        const genericStr = item.genericName  ? item.genericName           : '';
+        const brandStr   = item.brandName    ? item.brandName             : '';
+        const headline   = genericStr || brandStr || item.originalLine    || '';
         const { tag, label } = getSeverityInfo(item.severity);
+
+        // 來源標籤
+        const sourceLabel = item.source
+          ? `${item.source}${item.visitType ? '・' + item.visitType : ''}`
+          : '';
+
+        // 就醫日期（民國年轉西元顯示）
+        function fmtDate(d) {
+          if (!d) return '';
+          const parts = d.split(/[\/\.-]/);
+          if (parts.length >= 3) {
+            let y = parseInt(parts[0], 10);
+            if (y < 1911) y += 1911;
+            return `${y}/${parts[1].padStart(2,'0')}/${parts[2].padStart(2,'0')}`;
+          }
+          return d;
+        }
+        const dateDisplay = dateStr ? fmtDate(dateStr) : '';
 
         // DICT suggestion
         let suggText = '';
@@ -213,7 +231,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         card.innerHTML = `
           <div style="flex:1; min-width:0">
-            <div class="drug-name">${dateStr}${headline}</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+              ${sourceLabel ? `<span class="source-badge">${sourceLabel}</span>` : ''}
+              ${dateDisplay ? `<span class="date-badge">📅 ${dateDisplay}</span>` : ''}
+            </div>
+            <div class="drug-name">${headline}</div>
             ${genericStr && brandStr ? `<div class="drug-date">${genericStr} / ${brandStr}</div>` : ''}
             ${item.isDuplicate ? `<div class="drug-date" style="color:#f59e0b">⚠️ 重複品項（已自動選取最新一筆）</div>` : ''}
             ${suggText}
@@ -324,10 +346,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return { source: '', code: '', name: line, usage: '', suggestion: '' };
   }
 
+  function fmtDatePrint(d) {
+    if (!d) return '';
+    const parts = d.split(/[\/\.-]/);
+    if (parts.length >= 3) {
+      let y = parseInt(parts[0], 10);
+      if (y < 1911) y += 1911;
+      return `${y}/${parts[1].padStart(2,'0')}/${parts[2].padStart(2,'0')}`;
+    }
+    return d;
+  }
+
   function renderTableRows(items, isDanger) {
     const selectedItems = items.filter(x => x.selectedForPrint);
     if (selectedItems.length === 0) {
-      return `<tr><td colspan="2" class="empty-message">🟢 未發現此類交互作用藥物之品項。</td></tr>`;
+      return `<tr><td colspan="3" class="empty-message">🟢 未發現此類交互作用藥物之品項。</td></tr>`;
     }
     const seen = new Set();
     const unique = [];
@@ -344,12 +377,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const displayName = d.usage || d.code || d.name || '未知名稱';
       const subDetails = (d.code || d.name) && d.usage
         ? `<div style="font-size:8.5pt;color:#475569;margin-top:2px">學名：${d.code||'-'} / 代碼：${d.name||'-'}</div>` : '';
+      const sourceStr = item.source
+        ? `${item.source}${item.visitType ? '・' + item.visitType : ''}`
+        : '—';
+      const dateStr = fmtDatePrint(item.visitDate) || '—';
       return `
         <tr>
           <td>
             <div style="font-weight:bold;color:#0f172a">${displayName}</div>
             ${subDetails}
           </td>
+          <td style="font-size:8.5pt;color:#334155">${sourceStr}<br><span style="color:#64748b">${dateStr}</span></td>
           <td>
             <div class="suggestion-text">${icon} ${d.suggestion}</div>
             <div style="margin-top:4px">
@@ -461,15 +499,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   <div class="section-title danger">🔴 第一類：絕對不可併用之藥物 (Contraindicated) - 須停藥 8 天</div>
   <table class="med-table contraindicated">
-    <colgroup><col style="width:35%"><col style="width:65%"></colgroup>
-    <thead><tr><th>藥品名稱 (學名 / 商品名)</th><th>交互作用警語與臨床處置建議</th></tr></thead>
+    <colgroup><col style="width:30%"><col style="width:20%"><col style="width:50%"></colgroup>
+    <thead><tr><th>藥品名稱 (學名 / 商品名)</th><th>來源院所 / 就醫日期</th><th>交互作用警語與臨床處置建議</th></tr></thead>
     <tbody>${contraRows}</tbody>
   </table>
 
   <div class="section-title warning">🟡 第二類：需調整/減量之交互作用藥物 (Interactive) - 須密切監測或暫停 8 天</div>
   <table class="med-table interactive">
-    <colgroup><col style="width:35%"><col style="width:65%"></colgroup>
-    <thead><tr><th>藥品名稱 (學名 / 商品名)</th><th>交互作用警語與臨床處置建議</th></tr></thead>
+    <colgroup><col style="width:30%"><col style="width:20%"><col style="width:50%"></colgroup>
+    <thead><tr><th>藥品名稱 (學名 / 商品名)</th><th>來源院所 / 就醫日期</th><th>交互作用警語與臨床處置建議</th></tr></thead>
     <tbody>${interRows}</tbody>
   </table>
 

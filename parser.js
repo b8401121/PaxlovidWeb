@@ -321,12 +321,32 @@ function parseAndCategorizeCloudPrescription(rawText) {
     .replace(/jardiance/gi, 'jardiance含有empagliflozin')
     .replace(/qtern/gi, 'qtern含有saxagliptin')
     .replace(/ryzodeg/gi, 'ryzodeg含有insulin')
-    .replace(/entresto/gi, 'entresto含有sacubitril')
+.replace(/entresto/gi, 'entresto含有sacubitril')
     .replace(/caduet/gi, 'caduet含有atorvastatin');
 
   const blocks = txt.split('；').map(b => b.trim()).filter(b => b.length > 0);
   const codeRe = /^[A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3}(?:（[^）]+）|\([^)]+\))?$/;
-  const dateRe = /^\d{2,4}[/\.-]\d{1,2}[/\.-]\d{1,2}/;
+  const dateRe = /^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}/;
+
+  // ── 來源預掃描 ─────────────────────────────────────────────────────────────
+  // 雲端藥歷每筆藥記錄為 4 行一組：
+  //   A: {序號}\t{院所名稱}   → matches /^\d+\t/
+  //   B: {門診|住診|藥局}
+  //   C: {院所代碼}\t{主診斷}
+  //   D: {ATC3}\t...\t{藥品代碼}\t{藥品名稱}\t{就醫日期}\t...   ← 含藥品代碼
+  // 我們往回找最近的 A 行來得知來源
+  const itemLineRe = /^\d+\t(.+)/;
+  const visitTypeRe = /^(門診|住診|藥局)$/;
+  const sourceMap = []; // sourceMap[idx] = { source, visitType }
+  let lastSource = '';
+  let lastVisitType = '';
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i].trim();
+    const m = b.match(itemLineRe);
+    if (m) { lastSource = m[1].trim(); }
+    if (visitTypeRe.test(b)) { lastVisitType = b.trim(); }
+    sourceMap[i] = { source: lastSource, visitType: lastVisitType };
+  }
 
   const tempItems = [];
 
@@ -472,6 +492,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
     }
     
     const drugKey = matchedKw || genericName || brandName || blockLower;
+    const srcInfo = sourceMap[idx] || { source: '', visitType: '' };
 
     tempItems.push({
       id: `block_${idx}`,
@@ -485,7 +506,9 @@ function parseAndCategorizeCloudPrescription(rawText) {
       hasCode,
       visitDate,
       dateKey,
-      drugKey
+      drugKey,
+      source: srcInfo.source,
+      visitType: srcInfo.visitType
     });
   }
 
