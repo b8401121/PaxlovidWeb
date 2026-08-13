@@ -56,11 +56,14 @@
       <div class="card input-area">
         <h2 style="margin:0 0 12px 0; font-size:1.1rem">💊 Paxlovid 交互作用比對引擎</h2>
         <textarea id="search-input" placeholder="請在此貼上健保雲端藥歷文字... 貼上後將自動分析，也可直接輸入藥名查詢。"></textarea>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
           <button id="btn-paste" class="btn-primary">📋 貼上雲端藥歷</button>
           <button id="btn-clear" class="btn-secondary">🧹 清除重置</button>
           <button id="btn-print" class="btn-primary" disabled>🖨️ 列印衛教單</button>
           <button id="btn-copy-text" class="btn-secondary" disabled>📋 複製文字報告</button>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto;font-size:0.95rem;">
+            <input type="checkbox" id="cb-print-title" checked> 印出診所名稱
+          </label>
         </div>
       </div>
 

@@ -117,7 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // ─── Print & Preview ─────────────────────────────────────────────────────────
   btnPrint.addEventListener('click', () => {
     if (!currentCat) return;
-    const html = generatePrintHtml(currentCat);
+    const includeTitle = document.getElementById('cb-print-title').checked;
+    const html = generatePrintHtml(currentCat, includeTitle);
     ppModal.classList.remove('hidden');
     
     // Write into the preview iframe
@@ -412,10 +413,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
   }
 
-  function generatePrintHtml(cat) {
+  function generatePrintHtml(cat, includeTitle = true) {
     const printDate = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
     const contraRows = renderTableRows(cat.contraindicated, true);
     const interRows  = renderTableRows(cat.interactive, false);
+
+    const titleHtml = includeTitle ? 
+      `<div class="header-container">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div>
+            <h1 class="main-title">吳鎮宇耳鼻喉科診所 用藥安全指引報告</h1>
+            <p class="sub-title">Paxlovid (口服抗病毒藥) 雲端藥歷交互作用比對單張</p>
+          </div>
+        </div>
+        <div class="hospital-brand">
+          <strong>吳鎮宇耳鼻喉科診所</strong><br>
+          <span style="font-size:8pt;color:#64748b;font-weight:normal">改版日期: 2026-06-09</span>
+        </div>
+      </div>` : 
+      `<div class="header-container">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div>
+            <h1 class="main-title">用藥安全指引報告</h1>
+            <p class="sub-title">Paxlovid (口服抗病毒藥) 雲端藥歷交互作用比對單張</p>
+          </div>
+        </div>
+      </div>`;
+
+    const footerText = includeTitle ? 
+      '※ 本單張由「吳鎮宇耳鼻喉科診所 Paxlovid 雲端藥歷比對系統」輔助生成。用藥調整請務必遵照臨床醫師或藥師之專業指示。<br>' :
+      '※ 本單張由 Paxlovid 雲端藥歷比對系統 輔助生成。用藥調整請務必遵照臨床醫師或藥師之專業指示。<br>';
 
     return `<!DOCTYPE html>
 <html>
@@ -464,18 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </style>
 </head>
 <body contenteditable="true" spellcheck="false">
-  <div class="header-container">
-    <div style="display:flex;align-items:center;gap:12px">
-      <div>
-        <h1 class="main-title">吳鎮宇耳鼻喉科診所 用藥安全指引報告</h1>
-        <p class="sub-title">Paxlovid (口服抗病毒藥) 雲端藥歷交互作用比對單張</p>
-      </div>
-    </div>
-    <div class="hospital-brand">
-      <strong>吳鎮宇耳鼻喉科診所</strong><br>
-      <span style="font-size:8pt;color:#64748b;font-weight:normal">改版日期: 2026-06-09</span>
-    </div>
-  </div>
+  ${titleHtml}
 
   <table class="info-grid">
     <tr>
@@ -525,7 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </table>
 
   <div class="footer">
-    ※ 本單張由「吳鎮宇耳鼻喉科診所 Paxlovid 雲端藥歷比對系統」輔助生成。用藥調整請務必遵照臨床醫師或藥師之專業指示。<br>
+    ${footerText}
     © 臨床藥學與用藥安全查核單張 A4 標準格式
   </div>
 </body>
