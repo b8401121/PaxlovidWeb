@@ -526,6 +526,19 @@ function parseAndCategorizeCloudPrescription(rawText) {
       lastVisitType = embeddedSrcMatch[2].trim();
     }
 
+    // ── 第一筆記錄無序號：「台北醫大」這種純診所名稱行也要偵測 ───────────────
+    // 雲端藥歷第一筆不含序號，後面才有「2\t台北醫大」格式。
+    // 同樣套用嚴格驗證：短、有中文、不是診斷詞、不是英文為主、無 Tab
+    if (!m && !embeddedSrcMatch && !visitTypeRe.test(b) && !b.includes('\t')) {
+      const hasChinese = /[\u4e00-\u9fa5]/.test(b);
+      const isShort = b.length >= 2 && b.length <= 12;
+      const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明/.test(b);
+      const isMostlyEnglish = b.replace(/[^A-Za-z]/g, '').length / b.length > 0.5;
+      if (hasChinese && isShort && !isDiagnosis && !isMostlyEnglish) {
+        lastSource = b;
+      }
+    }
+
     sourceMap[i] = { source: lastSource, visitType: lastVisitType };
   }
 
