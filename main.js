@@ -238,46 +238,46 @@ function initApp() {
       const img = new Image();
       const url = URL.createObjectURL(imageFile);
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
 
-        // 裁切比例（保守裁切，確保表格頂部與底部行不被切除）
-        // 上方：約 8%（避開最頂部瀏覽器標籤）
-        // 下方：約 4%（避開 Windows 工作列）
-        const cropTopRatio   = 0.08;
-        const cropBottomRatio = 0.04;
-        const cropTop    = Math.round(img.height * cropTopRatio);
-        const cropBottom = Math.round(img.height * cropBottomRatio);
-        const newHeight  = img.height - cropTop - cropBottom;
+          // 保守裁切比例（避開最頂部標籤與最底部系統列，保留全部表格行）
+          const cropTopRatio    = 0.08;
+          const cropBottomRatio = 0.03;
+          const cropTop    = Math.round(img.height * cropTopRatio);
+          const cropBottom = Math.round(img.height * cropBottomRatio);
+          const newHeight  = img.height - cropTop - cropBottom;
 
-        // 放大 1.5 倍提升 OCR 解析度（對小字體健保代碼辨識率大幅提升）
-        const scale = 1.5;
-        canvas.width  = Math.round(img.width * scale);
-        canvas.height = Math.round(newHeight * scale);
+          canvas.width  = img.width;
+          canvas.height = newHeight;
 
-        ctx.imageSmoothingQuality = 'high';
-        // 繪製裁切並放大後的圖片
-        ctx.drawImage(img, 0, cropTop, img.width, newHeight, 0, 0, canvas.width, canvas.height);
+          // 繪製裁切後的圖片
+          ctx.drawImage(img, 0, cropTop, img.width, newHeight, 0, 0, img.width, newHeight);
 
-        // 對比度增強
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const d = imageData.data;
-        const contrast = 1.2;
-        for (let p = 0; p < d.length; p += 4) {
-          d[p]   = Math.min(255, Math.max(0, (d[p]   - 128) * contrast + 128));
-          d[p+1] = Math.min(255, Math.max(0, (d[p+1] - 128) * contrast + 128));
-          d[p+2] = Math.min(255, Math.max(0, (d[p+2] - 128) * contrast + 128));
+          // 對比度微調（增強表格文字清晰度）
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = imageData.data;
+          const contrast = 1.15;
+          for (let p = 0; p < d.length; p += 4) {
+            d[p]   = Math.min(255, Math.max(0, (d[p]   - 128) * contrast + 128));
+            d[p+1] = Math.min(255, Math.max(0, (d[p+1] - 128) * contrast + 128));
+            d[p+2] = Math.min(255, Math.max(0, (d[p+2] - 128) * contrast + 128));
+          }
+          ctx.putImageData(imageData, 0, 0);
+
+          URL.revokeObjectURL(url);
+          // Tesseract.js 原生支援 HTMLCanvasElement，直接傳遞最快且最穩定
+          resolve(canvas);
+        } catch (e) {
+          console.warn('Canvas preprocess failed, fallback to original file:', e);
+          URL.revokeObjectURL(url);
+          resolve(imageFile);
         }
-        ctx.putImageData(imageData, 0, 0);
-
-        URL.revokeObjectURL(url);
-        canvas.toBlob((blob) => {
-          resolve(new File([blob], imageFile.name || 'screenshot.png', { type: 'image/png' }));
-        }, 'image/png');
       };
       img.onerror = () => {
         URL.revokeObjectURL(url);
-        resolve(imageFile); // 若預處理失敗，使用原始檔案
+        resolve(imageFile);
       };
       img.src = url;
     });
