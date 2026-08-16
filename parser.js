@@ -147,11 +147,12 @@ function preprocessOcrText(rawText) {
           //   3. 不能是疾病診斷名稱（含有常見診斷關鍵字）
           //   4. 不能含有大量英文/數字（可能是診斷碼或 ATC 分類）
           let candidate = bLine.replace(/^\d+\s+/, '').trim(); // 去掉前置序號
+          candidate = candidate.replace(/^[\(\)（）\s\.\-]+|[\(\)（）\s\.\-]+$/g, '').trim();
           const hasChinese = /[\u4e00-\u9fa5]/.test(candidate);
           const isShort = candidate.length >= 2 && candidate.length <= 12;
-          const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明/.test(candidate);
+          const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性/.test(candidate);
           const isMostlyEnglish = (candidate.replace(/[^A-Za-z]/g, '').length / candidate.length) > 0.5;
-          const isJunkLine = /^[0-9\s\.\-\|\/\\@#\*\(\)]+$/.test(candidate);
+          const isJunkLine = /^[0-9\s\.\-\|\/\\@#\*\(\)（）]+$/.test(candidate);
           if (hasChinese && isShort && !isDiagnosis && !isMostlyEnglish && !isJunkLine) {
             source = candidate;
           }
@@ -811,10 +812,11 @@ function parseAndCategorizeCloudPrescription(rawText) {
     }
 
     // HTA Matching sequence: proh -> dont -> pote -> safe
-    const matchedProh = proh.find(k => blockLower.includes(k));
-    const matchedDont = dont.find(k => blockLower.includes(k));
-    const matchedPote = pote.find(k => blockLower.includes(k));
-    const matchedSafe = safe.find(k => blockLower.includes(k)) || safe2.find(k => blockLower.includes(k));
+    const searchTarget = `${blockLower} ${(genericName || '').toLowerCase()} ${(brandName || '').toLowerCase()}`;
+    const matchedProh = proh.find(k => searchTarget.includes(k));
+    const matchedDont = dont.find(k => searchTarget.includes(k));
+    const matchedPote = pote.find(k => searchTarget.includes(k));
+    const matchedSafe = safe.find(k => searchTarget.includes(k)) || safe2.find(k => searchTarget.includes(k));
 
     let severity = "unknown";
     let matchedKw = "";
@@ -831,6 +833,12 @@ function parseAndCategorizeCloudPrescription(rawText) {
     } else if (matchedSafe) {
       severity = "safe";
       matchedKw = matchedSafe;
+    } else if (hasCode) {
+      const codeKey = cols[codeIdx].toUpperCase();
+      if (NHI_CODE_LOOKUP[codeKey]) {
+        severity = NHI_CODE_LOOKUP[codeKey].severity;
+        matchedKw = (genericName || NHI_CODE_LOOKUP[codeKey].generic).toLowerCase();
+      }
     }
 
     let cleanLineScreen = "";
