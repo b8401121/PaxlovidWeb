@@ -516,6 +516,9 @@ function parseAndCategorizeCloudPrescription(rawText) {
         let d = parseInt(parts[2], 10);
         if (y < 1911) {
           y += 1911; // Taiwan ROC Year to Common Era Year
+          if (y < 2015 && (y + 100) <= (new Date().getFullYear() + 2)) {
+            y += 100;
+          }
         }
         if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
           dateKey = `${y.toString().padStart(4, "0")}-${m.toString().padStart(2, "0")}-${d.toString().padStart(2, "0")}`;
