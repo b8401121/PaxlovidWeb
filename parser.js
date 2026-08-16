@@ -1,3 +1,68 @@
+function cleanGenericName(rawGeneric) {
+  if (!rawGeneric) return "";
+  
+  let cleaned = rawGeneric.trim();
+  
+  const keywords = [];
+  if (typeof proh !== 'undefined') keywords.push(...proh);
+  if (typeof dont !== 'undefined') keywords.push(...dont);
+  if (typeof pote !== 'undefined') keywords.push(...pote);
+  if (typeof safe !== 'undefined') keywords.push(...safe);
+  if (typeof safe2 !== 'undefined') keywords.push(...safe2);
+  if (typeof DICT !== 'undefined') keywords.push(...Object.keys(DICT));
+  
+  const uniqueKeywords = Array.from(new Set(keywords)).filter(k => k.length > 2);
+  
+  const rawLower = cleaned.toLowerCase();
+  let firstIdx = -1;
+  
+  for (const kw of uniqueKeywords) {
+    const idx = rawLower.indexOf(kw);
+    if (idx !== -1) {
+      if (firstIdx === -1 || idx < firstIdx) {
+        firstIdx = idx;
+      }
+    }
+  }
+  
+  if (firstIdx !== -1) {
+    return cleaned.substring(firstIdx).trim();
+  }
+  
+  while (cleaned.startsWith('(') || cleaned.startsWith('（')) {
+    const openChar = cleaned[0];
+    const closeChar = openChar === '(' ? ')' : '）';
+    const closeIdx = cleaned.indexOf(closeChar);
+    if (closeIdx !== -1) {
+      cleaned = cleaned.substring(closeIdx + 1).trim();
+    } else {
+      break;
+    }
+  }
+  
+  const atcPrefixes = [
+    "psycholeptics", "ophthalmologicals", "antiepileptics", "lipid modifying",
+    "laxatives", "renin-angiotensin", "diabetes", "antipruritics",
+    "antihistamines", "corticosteroids", "nasal preparations", "anti-inflammatory"
+  ];
+  const cleanedLower = cleaned.toLowerCase();
+  for (const prefix of atcPrefixes) {
+    const pIdx = cleanedLower.indexOf(prefix);
+    if (pIdx !== -1) {
+      const endIdx = pIdx + prefix.length;
+      let temp = cleaned.substring(endIdx).trim();
+      if (temp.startsWith('.') || temp.startsWith(')') || temp.startsWith('）') || temp.startsWith(';') || temp.startsWith('；')) {
+        temp = temp.substring(1).trim();
+      }
+      cleaned = temp;
+      break;
+    }
+  }
+  
+  cleaned = cleaned.replace(/^[Yy]\s+/, '').trim();
+  return cleaned;
+}
+
 function preprocessOcrText(rawText) {
   if (!rawText || !rawText.trim()) return rawText;
 
@@ -56,24 +121,7 @@ function preprocessOcrText(rawText) {
       }
 
       let englishPart = lastChineseIdx !== -1 ? searchStr.substring(lastChineseIdx + 1).trim() : searchStr;
-
-      if (englishPart.startsWith('(') || englishPart.startsWith('（')) {
-        const openChar = englishPart[0];
-        const closeChar = openChar === '(' ? ')' : '）';
-        const closeIdx = englishPart.indexOf(closeChar);
-        if (closeIdx !== -1) {
-          englishPart = englishPart.substring(closeIdx + 1).trim();
-        }
-      }
-
-      englishPart = englishPart.trim();
-      if (englishPart.toUpperCase().startsWith('Y ') || englishPart.toUpperCase().startsWith('Y\t')) {
-        englishPart = englishPart.substring(2).trim();
-      } else if (englishPart.toUpperCase() === 'Y') {
-        englishPart = "";
-      }
-
-      generic = englishPart.trim();
+      generic = cleanGenericName(englishPart);
 
       const combinedSource = source || "雲端藥歷";
       const finalSource = visitType ? `${combinedSource}（${visitType}）` : combinedSource;
