@@ -742,32 +742,40 @@ function parseAndCategorizeCloudPrescription(rawText) {
       }
     }
 
-    // ── 健保代碼智慧補全字典（若 OCR 僅抓到代碼而學名缺失時自動補全）─────────────
+    // ── 健保代碼智慧補全字典（若 OCR 學名辨識亂碼或缺失時直接校正）─────────────
     const NHI_CODE_LOOKUP = {
       "BC23374100": { generic: "Valsartan", brand: "DIOVAN 160MG", severity: "interactive" },
       "AC60574100": { generic: "Tamsulosin Hcl", brand: "Tamlosin 0.4mg", severity: "interactive" },
       "BC240391G0": { generic: "Bisoprolol Fumarate", brand: "CONCOR 1.25", severity: "safe" },
+      "BC24039160": { generic: "Bisoprolol Fumarate", brand: "CONCOR 1.25", severity: "safe" },
       "BC25533100": { generic: "Levothyroxine Sodium", brand: "ELTROXIN 50mcg", severity: "safe" },
       "NC017521G0": { generic: "Imipramine Hcl", brand: "FRONIL", severity: "safe" },
+      "NC01752160": { generic: "Imipramine Hcl", brand: "FRONIL", severity: "safe" },
       "A023521100": { generic: "Magnesium Oxide", brand: "MAGNESIUM OXIDE", severity: "safe" },
       "A037697100": { generic: "Sennoside A+B", brand: "THROUGH", severity: "safe" },
       "AC41577100": { generic: "Potassium Citrate", brand: "DESTONE 540MG", severity: "safe" },
       "AC427541G0": { generic: "Benzbromarone", brand: "EURICON 50MG", severity: "safe" },
-      "AC62078121": { generic: "Calcium Polystyrene Sulfonate", brand: "KALIMATE", severity: "safe" },
-      "B020735429": { generic: "Hypromellose", brand: "ARTELAC", severity: "safe" },
+      "AC42754160": { generic: "Benzbromarone", brand: "EURICON 50MG", severity: "safe" },
+      "AC62078121": { generic: "Calcium Polystyrene Sulfonate", brand: "KALIMATE POWDER", severity: "safe" },
+      "B020735429": { generic: "Hypromellose", brand: "ARTELAC EYE DROPS", severity: "safe" },
+      "B020735420": { generic: "Hypromellose", brand: "ARTELAC EYE DROPS", severity: "safe" },
       "BC21628421": { generic: "Pirenoxine", brand: "KARY UNI", severity: "safe" },
       "AB45993100": { generic: "Acetylcysteine", brand: "ACTEIN 600MG", severity: "safe" },
-      "BC230161G0": { generic: "Fexofenadine", brand: "ALLEGRA 60MG", severity: "safe" },
-      "BC26301443": { generic: "Indacaterol Maleate", brand: "Ultibro Breezhaler", severity: "safe" },
-      "A040833157": { generic: "Methylephedrine", brand: "SECORINE SYRUP", severity: "safe" },
-      "AC60851457": { generic: "Azelastine", brand: "Dufanas Nasal Spray", severity: "safe" },
-      "A027040100": { generic: "Dexchlorpheniramine", brand: "DEX-CTM 2MG", severity: "safe" },
-      "AC19616329": { generic: "Betamethasone", brand: "BETAMETHASONE OINT", severity: "safe" }
+      "AB15993100": { generic: "Acetylcysteine", brand: "ACTEIN 600MG", severity: "safe" },
+      "BC230161G0": { generic: "Fexofenadine Hydrochloride", brand: "ALLEGRA 60MG", severity: "safe" },
+      "BC23016160": { generic: "Fexofenadine Hydrochloride", brand: "ALLEGRA 60MG", severity: "safe" },
+      "BC26301443": { generic: "Indacaterol Maleate ; Glycopyrronium Bromide", brand: "Ultibro Breezhaler", severity: "safe" },
+      "A040833157": { generic: "Methylephedrine ; Chlorpheniramine ; Guaiacol", brand: "SECORINE SYRUP", severity: "safe" },
+      "AC60851457": { generic: "Azelastine ; Fluticasone", brand: "Dufanas Nasal Spray", severity: "safe" },
+      "A027040100": { generic: "Dexchlorpheniramine Maleate", brand: "DEX-CTM 2MG", severity: "safe" },
+      "AC19616329": { generic: "Betamethasone (Dipropionate)", brand: "BETAMETHASONE OINT", severity: "safe" }
     };
 
-    if (hasCode && (!genericName || genericName.length < 2)) {
+    if (hasCode) {
       const codeKey = cols[codeIdx].toUpperCase();
-      if (NHI_CODE_LOOKUP[codeKey]) {
+      // 若學名缺失，或辨識為亂碼/非標準英文字串，直接以代碼字典標準化
+      const isGarbled = !genericName || genericName.length < 3 || /^[A-Za-z]{1,2}$/.test(genericName) || /^[0-9\W]+$/.test(genericName) || /EwEExER|BEEEER|TERFERERE|ENE|stage 3|日 數|ramine Hcl/i.test(genericName);
+      if (NHI_CODE_LOOKUP[codeKey] && (isGarbled || !genericName)) {
         genericName = NHI_CODE_LOOKUP[codeKey].generic;
         if (!brandName) brandName = NHI_CODE_LOOKUP[codeKey].brand;
       }
