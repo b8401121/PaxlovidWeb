@@ -691,7 +691,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
 
   // Split by line breaks (if tab-delimited lines or OCR lines)
   const blocks = txt.split(/[\r\n]+/).map(b => b.trim()).filter(b => b.length > 0);
-  const codeRe = /^[A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3}(?:（[^）]+）|\([^)]+\))?$/;
+  const codeRe = /[A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3}/;
   const dateRe = /^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}/;
 
   // ── 來源預掃描 ─────────────────────────────────────────────────────────────
@@ -802,7 +802,8 @@ function parseAndCategorizeCloudPrescription(rawText) {
     };
 
     if (hasCode) {
-      const codeKey = cols[codeIdx].toUpperCase();
+      const match = cols[codeIdx].match(/([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})/);
+      const codeKey = match ? match[1].toUpperCase() : cols[codeIdx].toUpperCase();
       // 若學名缺失，或辨識為亂碼/非標準英文字串，直接以代碼字典標準化
       const isGarbled = !genericName || genericName.length < 3 || /^[A-Za-z]{1,2}$/.test(genericName) || /^[0-9\W]+$/.test(genericName) || /EwEExER|BEEEER|TERFERERE|ENE|stage 3|日 數|ramine Hcl/i.test(genericName);
       if (NHI_CODE_LOOKUP[codeKey] && (isGarbled || !genericName)) {
@@ -872,7 +873,8 @@ function parseAndCategorizeCloudPrescription(rawText) {
       severity = "safe";
       matchedKw = matchedSafe;
     } else if (hasCode) {
-      const codeKey = cols[codeIdx].toUpperCase();
+      const match = cols[codeIdx].match(/([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})/);
+      const codeKey = match ? match[1].toUpperCase() : cols[codeIdx].toUpperCase();
       if (NHI_CODE_LOOKUP[codeKey]) {
         severity = NHI_CODE_LOOKUP[codeKey].severity;
         matchedKw = (genericName || NHI_CODE_LOOKUP[codeKey].generic).toLowerCase();
