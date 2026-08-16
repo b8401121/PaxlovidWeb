@@ -71,7 +71,14 @@ function preprocessOcrText(rawText) {
   let buffer = [];
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    let line = lines[i];
+
+    // ── OCR 字元修正：替換常見數字/字母混淆 ──────────────────────────────
+    // 在整行中尋找可能被誤讀為數字的健保碼首字元，如 8C→BC, 0D→OD, 1B→IB 等
+    line = line.replace(/(?<![A-Za-z])8([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'B$1');
+    line = line.replace(/(?<![A-Za-z])0([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'O$1');
+    line = line.replace(/(?<![A-Za-z])1([A-Za-z][A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'I$1');
+
     const codeMatch = line.match(/\b([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})\b/);
     
     if (codeMatch && !line.includes('\t')) {
@@ -105,7 +112,8 @@ function preprocessOcrText(rawText) {
       } else {
         brand = rightPart;
       }
-      brand = brand.replace(/\s+/g, ' ').trim();
+      // 去除 OCR 表格線符號造成的前綴垃圾（如 | / - 等）
+      brand = brand.replace(/^[\s|\-\/]+/, '').replace(/\s+/g, ' ').trim();
 
       let generic = "";
       let searchStr = leftPart;
