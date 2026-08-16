@@ -315,8 +315,6 @@ function initApp() {
             }
           }
         });
-        // 使用 PSM 11（稀疏文字模式）更適合表格截圖掃描
-        await ocrWorker.setParameters({ tessedit_pageseg_mode: '11' });
       }
 
       const results = [];
@@ -332,17 +330,10 @@ function initApp() {
         imgReader.readAsDataURL(file);
 
         ocrStatusText.textContent = files.length > 1 
-          ? `正在預處理第 ${i + 1}/${files.length} 張圖片...` 
-          : '圖片預處理中...';
-
-        // 先裁切瀏覽器工具列與工作列，再進行 OCR
-        const processedFile = await preprocessImageForOCR(file);
-
-        ocrStatusText.textContent = files.length > 1 
           ? `正在辨識第 ${i + 1}/${files.length} 張圖片 (${file.name || '截圖'})...` 
           : '分析圖像文字...';
 
-        const result = await ocrWorker.recognize(processedFile);
+        const result = await ocrWorker.recognize(file);
         const rawText = result.data.text;
         const preprocessedText = preprocessOcrText(rawText);
         if (preprocessedText && preprocessedText.trim()) {
