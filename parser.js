@@ -267,10 +267,20 @@ function preprocessOcrText(rawText) {
         source = "";
       }
 
-      const combinedSource = source || "雲端藥歷";
-      const finalSource = visitType ? `${combinedSource}（${visitType}）` : combinedSource;
-      
-      const reconstructed = `${finalSource}\t${generic}\t${code}\t${brand}\t${date}`;
+      // ── 如果同一行中找不到日期，嘗試從右側或是歷史緩衝尋找日期 ──────────────
+      let finalDate = date;
+      if (!finalDate) {
+        // 往前找 buffer 中的日期
+        for (let j = buffer.length - 1; j >= 0; j--) {
+          const dM = buffer[j].match(/(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/);
+          if (dM) {
+            finalDate = dM[1];
+            break;
+          }
+        }
+      }
+
+      const reconstructed = `${finalSource}\t${generic}\t${code}\t${brand}\t${finalDate}`;
       reconstructedLines.push(reconstructed);
       
       buffer = [];
@@ -278,15 +288,23 @@ function preprocessOcrText(rawText) {
       if (line.includes('\t')) {
         reconstructedLines.push(line);
       } else {
+        // 檢查該行是否包含日期（可能是上一行代碼換行後的日期行）
+        const dM = line.match(/(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/);
+        if (dM && reconstructedLines.length > 0) {
+          const lastIdx = reconstructedLines.length - 1;
+          const cols = reconstructedLines[lastIdx].split('\t');
+          // 若最後一行的日期欄位為空，將此日期補入
+          if (cols.length >= 4 && (!cols[4] || !cols[4].trim())) {
+            cols[4] = dM[1];
+            reconstructedLines[lastIdx] = cols.join('\t');
+          }
+        }
         buffer.push(line);
       }
     }
   }
 
-  if (buffer.length > 0) {
-    reconstructedLines.push(...buffer);
-  }
-
+  // 結尾未成行的純垃圾文字（劑量、頻次、代碼等）不加入輸出，避免產生零碎無效卡片
   return reconstructedLines.join('\n');
 }
 
