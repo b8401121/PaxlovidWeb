@@ -1,21 +1,25 @@
 :root {
-  --bg-main: #f2f8f6;
-  --bg-card: #ffffff;
-  --bg-card-hover: #e6f2ed;
-  --text-main: #2e2518;
-  --text-secondary: #5e4e37;
-  --primary: #0d9488;
-  --primary-hover: #0f766e;
-  --border: #dbece5;
+  --bg-main: #F5F0E8;
+  --bg-gradient: linear-gradient(135deg, #F5F0E8 0%, #EBF0F0 50%, #F0EBF5 100%);
+  --card-bg: rgba(255, 253, 248, 0.96);
+  --bg-card: rgba(255, 253, 248, 0.96);
+  --bg-card-hover: #f0ebe1;
+  --text-main: #2D3748;
+  --text-secondary: #718096;
+  --text-muted: #718096;
+  --primary: #4A7C88;
+  --primary-hover: #3A6270;
+  --accent: #5B728A;
+  --border: rgba(180, 170, 155, 0.35);
   
-  --danger-bg: #fee2e2;
-  --danger-text: #991b1b;
-  --warning-bg: #fef3c7;
-  --warning-text: #92400e;
-  --caution-bg: #e0e7ff;
-  --caution-text: #3730a3;
-  --safe-bg: #d1fae5;
-  --safe-text: #065f46;
+  --danger-bg: #F0E8E6;
+  --danger-text: #8B4A42;
+  --warning-bg: #FDF3E7;
+  --warning-text: #9A5B1E;
+  --caution-bg: #EBF0F5;
+  --caution-text: #3E5C76;
+  --safe-bg: #E8F0E9;
+  --safe-text: #3D7A5A;
   
   font-family: 'Outfit', 'Noto Sans TC', sans-serif;
 }
@@ -125,23 +129,27 @@
 
 body.theme-eyecare {
   --bg-main: #eadabe;
+  --bg-gradient: #eadabe;
   --bg-card: #fdf5e6;
   --bg-card-hover: #f5ebd9;
   --text-main: #2e2518;
   --text-secondary: #5e4e37;
   --primary: #b25e1a;
   --primary-hover: #9a4f12;
+  --accent: #9a4f12;
   --border: #dccb9f;
 }
 
 body.theme-dark {
   --bg-main: #0d1f1b;
+  --bg-gradient: #0d1f1b;
   --bg-card: #152e29;
   --bg-card-hover: #1e3f38;
   --text-main: #e2e8f0;
   --text-secondary: #94a3b8;
   --primary: #2dd4bf;
   --primary-hover: #5eead4;
+  --accent: #14b8a6;
   --border: #071311;
   
   --danger-bg: #7f1d1d;
@@ -159,9 +167,10 @@ body.theme-dark {
 body {
   margin: 0;
   padding: 0;
-  background-color: var(--bg-main);
+  background: var(--bg-gradient, var(--bg-main));
+  background-attachment: fixed;
   color: var(--text-main);
-  transition: background-color 0.3s, color 0.3s;
+  transition: background 0.3s, color 0.3s;
 }
 
 .app-container {
@@ -178,10 +187,11 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
-  padding: 16px;
+  padding: 16px 20px;
   background-color: var(--bg-card);
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px -5px rgba(74, 124, 136, 0.08);
 }
 
 .app-title-group {
@@ -235,9 +245,11 @@ h1 {
 
 .card {
   background-color: var(--bg-card);
-  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px -5px rgba(74, 124, 136, 0.12);
   margin-bottom: 24px;
 }
 
@@ -247,7 +259,7 @@ h1 {
   padding: 12px;
   border: 2px dashed var(--border);
   border-radius: 8px;
-  background-color: var(--bg-main);
+  background-color: var(--bg-card-hover);
   color: var(--text-main);
   font-family: inherit;
   font-size: 1rem;
@@ -261,41 +273,58 @@ h1 {
 }
 
 .btn-primary {
-  background-color: var(--primary);
+  background: linear-gradient(135deg, var(--primary), var(--accent, #5B728A));
   color: white;
   border: none;
   padding: 10px 20px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  transition: background-color 0.2s;
+  box-shadow: 0 4px 12px rgba(74, 124, 136, 0.25);
+  transition: all 0.2s;
 }
 
 .btn-primary:hover {
-  background-color: var(--primary-hover);
+  background: linear-gradient(135deg, var(--primary-hover), var(--primary));
+  box-shadow: 0 6px 16px rgba(74, 124, 136, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-secondary {
-  background-color: transparent;
+  background: var(--bg-card);
   color: var(--text-main);
   border: 1px solid var(--border);
   padding: 10px 20px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .btn-secondary:hover {
   background-color: var(--bg-card-hover);
+  border-color: var(--primary);
+  color: var(--primary-hover);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .tabs {
