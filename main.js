@@ -170,11 +170,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       ocrStatusText.textContent = '分析圖像文字...';
       const result = await ocrWorker.recognize(file);
-      const text = result.data.text;
+      const rawText = result.data.text;
+
+      // Preprocess raw OCR text to standard tab-separated format
+      const preprocessedText = preprocessOcrText(rawText);
 
       // Fill and trigger parse
-      searchInput.value = text;
-      handleSearch(text);
+      searchInput.value = preprocessedText;
+      handleSearch(preprocessedText);
 
       ocrProgContainer.classList.add('hidden');
     } catch (err) {
