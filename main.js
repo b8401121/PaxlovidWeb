@@ -116,6 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
     resultsContainer.classList.add('hidden');
     categoryResults.innerHTML = '';
     manualTableBody.innerHTML = '';
+    const allDrugsTbody = document.getElementById('all-drugs-table-body');
+    if (allDrugsTbody) allDrugsTbody.innerHTML = '';
     currentCat = null;
     btnPrint.disabled = true;
     btnCopyText.disabled = true;
@@ -308,6 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     currentCat = parseAndCategorizeCloudPrescription(text);
     renderCategories(currentCat);
+    renderAllDrugsTable(currentCat.allItems || []);
     renderManualTable(searchInteractions(text));
 
     const hasWarnings = currentCat.contraindicated.length + currentCat.interactive.length > 0;
@@ -471,6 +474,67 @@ document.addEventListener('DOMContentLoaded', () => {
         <td><span class="tag ${tagClass}">${severityLabel}</span></td>
       `;
       manualTableBody.appendChild(tr);
+    });
+  }
+
+  // ─── All Drugs Summary Table ───────────────────────────────────────────────
+  const allDrugsTableBody = document.getElementById('all-drugs-table-body');
+  const btnCopyAllDrugs   = document.getElementById('btn-copy-all-drugs');
+
+  function renderAllDrugsTable(items) {
+    if (!allDrugsTableBody) return;
+    allDrugsTableBody.innerHTML = '';
+
+    if (!items || items.length === 0) {
+      allDrugsTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:24px">無藥物資料</td></tr>';
+      return;
+    }
+
+    items.forEach((item, idx) => {
+      const tr = document.createElement('tr');
+
+      const dateDisplay = item.visitDate ? fmtDate(item.visitDate) : '—';
+      const sourceDisplay = item.source ? `${item.source}${item.visitType ? '・' + item.visitType : ''}` : '—';
+      const genericDisplay = item.genericName || '—';
+      const brandDisplay = item.brandName || '—';
+      const codeMatch = item.originalLine ? item.originalLine.match(/\b([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})\b/) : null;
+      const codeDisplay = item.hasCode && codeMatch ? codeMatch[1] : '—';
+      
+      const { tag, label } = getSeverityInfo(item.severity);
+
+      tr.innerHTML = `
+        <td style="color:var(--text-secondary); font-size:0.85rem;">${idx + 1}</td>
+        <td style="white-space:nowrap; font-weight:500;">${dateDisplay}</td>
+        <td style="white-space:nowrap;">${sourceDisplay}</td>
+        <td style="font-weight:600; color:var(--text-main);">${genericDisplay}</td>
+        <td style="color:var(--text-secondary);">${brandDisplay}</td>
+        <td><code style="font-size:0.85rem; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:4px;">${codeDisplay}</code></td>
+        <td><span class="tag ${tag}">${label}</span></td>
+      `;
+      allDrugsTableBody.appendChild(tr);
+    });
+  }
+
+  if (btnCopyAllDrugs) {
+    btnCopyAllDrugs.addEventListener('click', () => {
+      if (!currentCat || !currentCat.allItems || currentCat.allItems.length === 0) return;
+      
+      const lines = ['#\t就醫日期\t來源院所\t學名\t商品名\t健保代碼\tPaxlovid評估'];
+      currentCat.allItems.forEach((item, idx) => {
+        const dateDisplay = item.visitDate ? fmtDate(item.visitDate) : '—';
+        const sourceDisplay = item.source ? `${item.source}${item.visitType ? '・' + item.visitType : ''}` : '—';
+        const genericDisplay = item.genericName || '—';
+        const brandDisplay = item.brandName || '—';
+        const codeMatch = item.originalLine ? item.originalLine.match(/\b([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})\b/) : null;
+        const codeDisplay = item.hasCode && codeMatch ? codeMatch[1] : '—';
+        const { label } = getSeverityInfo(item.severity);
+        lines.push(`${idx + 1}\t${dateDisplay}\t${sourceDisplay}\t${genericDisplay}\t${brandDisplay}\t${codeDisplay}\t${label}`);
+      });
+      
+      navigator.clipboard.writeText(lines.join('\n')).then(() => {
+        btnCopyAllDrugs.textContent = '✅ 已複製整理清單！';
+        setTimeout(() => { btnCopyAllDrugs.textContent = '📋 複製整理清單'; }, 2000);
+      });
     });
   }
 

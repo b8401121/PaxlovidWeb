@@ -783,11 +783,21 @@ function parseAndCategorizeCloudPrescription(rawText) {
       unknown.push(parsedItem);
     }
   }
+
+  // Filter and sort all unique medication entries for the summary overview
+  const allItems = tempItems.filter(it => it.hasCode || it.genericName || it.brandName);
+  allItems.sort((a, b) => {
+    if (b.dateKey !== a.dateKey) {
+      return b.dateKey.localeCompare(a.dateKey);
+    }
+    return 0;
+  });
   
   return {
     contraindicated,
     interactive,
     safe,
-    unknown
+    unknown,
+    allItems
   };
 }
