@@ -150,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       if (!ocrWorker) {
         ocrStatusText.textContent = '初始化 OCR 引擎...';
-        ocrWorker = await Tesseract.createWorker({
+        ocrWorker = await Tesseract.createWorker('eng+chi_tra', 1, {
           logger: m => {
             if (m.status === 'recognizing text') {
               const progress = Math.round(m.progress * 100);
@@ -164,8 +164,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
         });
-        await ocrWorker.loadLanguage('eng+chi_tra');
-        await ocrWorker.initialize('eng+chi_tra');
       }
 
       ocrStatusText.textContent = '分析圖像文字...';
