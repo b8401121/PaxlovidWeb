@@ -3529,6 +3529,22 @@ const pote = [
   "zotepine"
 ];
 const safe = [
+  "dexchlorpheniramine",
+  "chlorpheniramine",
+  "benzbromarone",
+  "pirenoxine",
+  "hypromellose",
+  "hydroxypropylmethylcellulose",
+  "azelastine",
+  "fluticasone",
+  "sennoside",
+  "methylephedrine",
+  "guaiacol glycolate",
+  "glyceryl guaiacolate",
+  "potassium citrate",
+  "calcium polystyrene",
+  "polystyrene sulfonate",
+  "betamethasone",
   "norethisterone",
   "norethindrone",
   "norgestrel",

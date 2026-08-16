@@ -25,11 +25,28 @@ function cleanGenericName(rawGeneric) {
   let firstIdx = -1;
   
   for (const kw of uniqueKeywords) {
-    const idx = rawLower.indexOf(kw);
-    if (idx !== -1) {
+    let searchFrom = 0;
+    while (true) {
+      const idx = rawLower.indexOf(kw, searchFrom);
+      if (idx === -1) break;
+      
+      // Skip matches that are inside parentheses (e.g. Sennoside A+B(Calcium) → 'calcium' is inside brackets)
+      // Count unmatched open parens before this position
+      let depth = 0;
+      for (let ci = 0; ci < idx; ci++) {
+        if (cleaned[ci] === '(' || cleaned[ci] === '（') depth++;
+        else if (cleaned[ci] === ')' || cleaned[ci] === '）') depth--;
+      }
+      if (depth > 0) {
+        searchFrom = idx + 1;
+        continue; // this match is inside parentheses — skip it
+      }
+      
+      // Accept this match
       if (firstIdx === -1 || idx < firstIdx) {
         firstIdx = idx;
       }
+      break;
     }
   }
   
@@ -206,6 +223,20 @@ function preprocessOcrText(rawText) {
       }
 
       let englishPart = lastChineseIdx !== -1 ? searchStr.substring(lastChineseIdx + 1).trim() : searchStr;
+
+      // ── OCR 防錯：ATC 分類說明可能殘留在 englishPart 前面 ─────────────────────
+      // 例如：「for systemic use） Dexchlorpheniramine Maleate」
+      //   或：「preparations） Benzbromarone」
+      // 當 englishPart 包含 ）或) 時，從最後一個括號後面開始取藥名（去除 ATC 類別描述殘字）
+      const lastCloseParenIdx = Math.max(englishPart.lastIndexOf('）'), englishPart.lastIndexOf(')'));
+      if (lastCloseParenIdx !== -1 && lastCloseParenIdx < englishPart.length - 1) {
+        const afterParen = englishPart.substring(lastCloseParenIdx + 1).trim();
+        // Only use if there's meaningful content after the paren (at least 3 chars, starts with letter)
+        if (afterParen.length >= 3 && /^[A-Za-z]/.test(afterParen)) {
+          englishPart = afterParen;
+        }
+      }
+
       generic = cleanGenericName(englishPart);
 
       const combinedSource = source || "雲端藥歷";
