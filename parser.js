@@ -280,6 +280,18 @@ function preprocessOcrText(rawText) {
         }
       }
 
+      let finalSource = source;
+      if (visitType) {
+        finalSource = finalSource ? `${finalSource}（${visitType}）` : `（${visitType}）`;
+      }
+
+      // NHI Code Dictionary fallback: if generic is empty or garbled, look up by code
+      if ((!generic || generic.length < 3 || /^[A-Z\s]{1,4}$/.test(generic) || /EwEE|BEEE|TERF|ENE/i.test(generic)) && typeof NHI_CODE_LOOKUP !== 'undefined' && NHI_CODE_LOOKUP[code]) {
+        const entry = NHI_CODE_LOOKUP[code];
+        generic = entry.generic || generic;
+        if (!brand || brand.length < 3) brand = entry.brand || brand;
+      }
+
       const reconstructed = `${finalSource}\t${generic}\t${code}\t${brand}\t${finalDate}`;
       reconstructedLines.push(reconstructed);
       
