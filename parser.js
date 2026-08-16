@@ -3,6 +3,14 @@ function cleanGenericName(rawGeneric) {
   
   let cleaned = rawGeneric.trim();
   
+  // OCR 常見醫學詞尾修復 (如 Hcl 被誤認成 Hd, Hci, Hel, Hct 等)
+  cleaned = cleaned.replace(/\bHd\b/g, 'Hcl')
+                   .replace(/\bHci\b/g, 'Hcl')
+                   .replace(/\bHel\b/g, 'Hcl')
+                   .replace(/\bHct\b/g, 'Hcl')
+                   .replace(/\bTab\b/gi, 'Tablets')
+                   .replace(/\bCap\b/gi, 'Capsules');
+
   const keywords = [];
   if (typeof proh !== 'undefined') keywords.push(...proh);
   if (typeof dont !== 'undefined') keywords.push(...dont);
@@ -42,7 +50,7 @@ function cleanGenericName(rawGeneric) {
   
   const atcPrefixes = [
     "psycholeptics", "ophthalmologicals", "antiepileptics", "lipid modifying",
-    "laxatives", "renin-angiotensin", "diabetes", "antipruritics",
+    "laxatives", "renin-angiotensin", "diabetes", "antipruritics", "urologicals",
     "antihistamines", "corticosteroids", "nasal preparations", "anti-inflammatory"
   ];
   const cleanedLower = cleaned.toLowerCase();
@@ -78,6 +86,22 @@ function preprocessOcrText(rawText) {
     line = line.replace(/(?<![A-Za-z])8([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'B$1');
     line = line.replace(/(?<![A-Za-z])0([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'O$1');
     line = line.replace(/(?<![A-Za-z])1([A-Za-z][A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'I$1');
+
+    // 修復健保碼內部數字被誤認為字母（如 Acs0s74100 -> AC50574100）
+    line = line.replace(/\b([A-Za-z]{1,3}[0-9A-Za-z]{7,10})\b/g, (match) => {
+      const digitCount = (match.match(/\d/g) || []).length;
+      if (digitCount >= 4 && match.length >= 8 && match.length <= 12) {
+        const prefix = match.substring(0, 2).toUpperCase();
+        let rest = match.substring(2);
+        rest = rest.replace(/s/gi, '5')
+                   .replace(/o/gi, '0')
+                   .replace(/[li]/gi, '1')
+                   .replace(/z/gi, '2')
+                   .replace(/b/gi, '8');
+        return prefix + rest;
+      }
+      return match;
+    });
 
     const codeMatch = line.match(/\b([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})\b/);
     
