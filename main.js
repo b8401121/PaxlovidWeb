@@ -116,6 +116,7 @@ function initApp() {
   const btnClosePreview  = document.getElementById('btn-close-preview');
 
   // OCR elements
+  const btnPasteImage    = document.getElementById('btn-paste-image');
   const btnOcrUpload     = document.getElementById('btn-ocr-upload');
   const ocrFileInput     = document.getElementById('ocr-file-input');
   const ocrProgContainer = document.getElementById('ocr-progress-container');
@@ -125,15 +126,56 @@ function initApp() {
   const ocrProgressBar   = document.getElementById('ocr-progress-bar');
   const btnCancelOcr     = document.getElementById('btn-cancel-ocr');
 
-  // ─── Paste ──────────────────────────────────────────────────────────────────
+  // ─── Paste Text ──────────────────────────────────────────────────────────────
   btnPaste.addEventListener('click', async () => {
     try {
       const text = await navigator.clipboard.readText();
       if (text) { searchInput.value = text; handleSearch(text); return; }
-    } catch (e) { console.warn('Clipboard API failed:', e); }
+    } catch (e) { console.warn('Clipboard readText failed:', e); }
     if (searchInput.value.trim()) { handleSearch(searchInput.value); }
-    else { alert('您的瀏覽器阻擋剪貼簿權限。\n請在上方框框中直接按 Ctrl+V 貼上藥歷，系統會自動分析！'); }
+    else { alert('您的瀏覽器阻擋文字剪貼簿權限。\n請在上方框框中直接按 Ctrl+V 貼上藥歷，系統會自動分析！'); }
   });
+
+  // ─── Paste Image from Clipboard ──────────────────────────────────────────────
+  if (btnPasteImage) {
+    btnPasteImage.addEventListener('click', async () => {
+      try {
+        if (!navigator.clipboard || !navigator.clipboard.read) {
+          alert('您的瀏覽器不支援直接讀取剪貼簿圖片。\n請直接在頁面上按下鍵盤 Ctrl+V 貼上截圖！');
+          return;
+        }
+
+        const clipboardItems = await navigator.clipboard.read();
+        const imageFiles = [];
+
+        for (const item of clipboardItems) {
+          for (const type of item.types) {
+            if (type.startsWith('image/')) {
+              const blob = await item.getType(type);
+              const file = new File([blob], `clipboard_${Date.now()}.${type.split('/')[1] || 'png'}`, { type });
+              imageFiles.push(file);
+            }
+          }
+        }
+
+        if (imageFiles.length > 0) {
+          handleMultipleImagesOCR(imageFiles);
+        } else {
+          // If no image found, check if there's text in clipboard
+          const text = await navigator.clipboard.readText();
+          if (text && text.trim()) {
+            searchInput.value = text;
+            handleSearch(text);
+          } else {
+            alert('剪貼簿中未偵測到圖片！\n請先截圖 (Win+Shift+S 或 Alt+PrintScreen) 後，再點擊此按鈕或按 Ctrl+V 貼上。');
+          }
+        }
+      } catch (err) {
+        console.warn('Clipboard image read failed:', err);
+        alert('無法直接存取剪貼簿圖片（可能受瀏覽器權限限制）。\n請直接點擊輸入框後按鍵盤「Ctrl + V」即可貼上截圖辨識！');
+      }
+    });
+  }
 
   // ─── Clear ─────────────────────────────────────────────────────────────────
   btnClear.addEventListener('click', () => {
