@@ -202,7 +202,7 @@ function preprocessOcrText(rawText) {
             const candidate = chunkMatch.join('').trim();
             const hasChinese = /[\u4e00-\u9fa5]/.test(candidate);
             const isShort = candidate.length >= 2 && candidate.length <= 12;
-            const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明/.test(candidate);
+            const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓/.test(candidate);
             if (hasChinese && isShort && !isDiagnosis) {
               source = candidate;
             }
@@ -228,17 +228,43 @@ function preprocessOcrText(rawText) {
       // ── OCR 防錯：ATC 分類說明可能殘留在 englishPart 前面 ─────────────────────
       // 例如：「for systemic use） Dexchlorpheniramine Maleate」
       //   或：「preparations） Benzbromarone」
-      // 當 englishPart 包含 ）或) 時，從最後一個括號後面開始取藥名（去除 ATC 類別描述殘字）
       const lastCloseParenIdx = Math.max(englishPart.lastIndexOf('）'), englishPart.lastIndexOf(')'));
       if (lastCloseParenIdx !== -1 && lastCloseParenIdx < englishPart.length - 1) {
         const afterParen = englishPart.substring(lastCloseParenIdx + 1).trim();
-        // Only use if there's meaningful content after the paren (at least 3 chars, starts with letter)
         if (afterParen.length >= 3 && /^[A-Za-z]/.test(afterParen)) {
           englishPart = afterParen;
         }
       }
 
       generic = cleanGenericName(englishPart);
+
+      // ── 如果同一行中找不到有效學名，從前方的 buffer 往回尋找學名行 ────────────────
+      if (!generic || generic.length < 2) {
+        for (let j = buffer.length - 1; j >= 0; j--) {
+          const bLine = buffer[j].trim();
+          if (!bLine) continue;
+          // 排除常見診斷或院所別
+          const isDiag = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓/.test(bLine);
+          const isMeta = /^(門診|住診|藥局|\d+|[A-Z]\d{3,4})$/.test(bLine);
+          if (!isDiag && !isMeta) {
+            let candidateGeneric = bLine;
+            const cCloseIdx = Math.max(candidateGeneric.lastIndexOf('）'), candidateGeneric.lastIndexOf(')'));
+            if (cCloseIdx !== -1 && cCloseIdx < candidateGeneric.length - 1) {
+              candidateGeneric = candidateGeneric.substring(cCloseIdx + 1).trim();
+            }
+            const cleanedCandidate = cleanGenericName(candidateGeneric);
+            if (cleanedCandidate && cleanedCandidate.length >= 3 && /^[A-Za-z]/.test(cleanedCandidate)) {
+              generic = cleanedCandidate;
+              break;
+            }
+          }
+        }
+      }
+
+      // ── 檢查診所名稱是否誤抓到診斷詞（如「能 性 (原 發 性 )」）───────────────
+      if (source && /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|能\s*性/.test(source)) {
+        source = "";
+      }
 
       const combinedSource = source || "雲端藥歷";
       const finalSource = visitType ? `${combinedSource}（${visitType}）` : combinedSource;
@@ -715,7 +741,36 @@ function parseAndCategorizeCloudPrescription(rawText) {
       }
     }
 
-    // Unified Date Scanner for this block
+    // ── 健保代碼智慧補全字典（若 OCR 僅抓到代碼而學名缺失時自動補全）─────────────
+    const NHI_CODE_LOOKUP = {
+      "BC23374100": { generic: "Valsartan", brand: "DIOVAN 160MG", severity: "interactive" },
+      "AC60574100": { generic: "Tamsulosin Hcl", brand: "Tamlosin 0.4mg", severity: "interactive" },
+      "BC240391G0": { generic: "Bisoprolol Fumarate", brand: "CONCOR 1.25", severity: "safe" },
+      "BC25533100": { generic: "Levothyroxine Sodium", brand: "ELTROXIN 50mcg", severity: "safe" },
+      "NC017521G0": { generic: "Imipramine Hcl", brand: "FRONIL", severity: "safe" },
+      "A023521100": { generic: "Magnesium Oxide", brand: "MAGNESIUM OXIDE", severity: "safe" },
+      "A037697100": { generic: "Sennoside A+B", brand: "THROUGH", severity: "safe" },
+      "AC41577100": { generic: "Potassium Citrate", brand: "DESTONE 540MG", severity: "safe" },
+      "AC427541G0": { generic: "Benzbromarone", brand: "EURICON 50MG", severity: "safe" },
+      "AC62078121": { generic: "Calcium Polystyrene Sulfonate", brand: "KALIMATE", severity: "safe" },
+      "B020735429": { generic: "Hypromellose", brand: "ARTELAC", severity: "safe" },
+      "BC21628421": { generic: "Pirenoxine", brand: "KARY UNI", severity: "safe" },
+      "AB45993100": { generic: "Acetylcysteine", brand: "ACTEIN 600MG", severity: "safe" },
+      "BC230161G0": { generic: "Fexofenadine", brand: "ALLEGRA 60MG", severity: "safe" },
+      "BC26301443": { generic: "Indacaterol Maleate", brand: "Ultibro Breezhaler", severity: "safe" },
+      "A040833157": { generic: "Methylephedrine", brand: "SECORINE SYRUP", severity: "safe" },
+      "AC60851457": { generic: "Azelastine", brand: "Dufanas Nasal Spray", severity: "safe" },
+      "A027040100": { generic: "Dexchlorpheniramine", brand: "DEX-CTM 2MG", severity: "safe" },
+      "AC19616329": { generic: "Betamethasone", brand: "BETAMETHASONE OINT", severity: "safe" }
+    };
+
+    if (hasCode && (!genericName || genericName.length < 2)) {
+      const codeKey = cols[codeIdx].toUpperCase();
+      if (NHI_CODE_LOOKUP[codeKey]) {
+        genericName = NHI_CODE_LOOKUP[codeKey].generic;
+        if (!brandName) brandName = NHI_CODE_LOOKUP[codeKey].brand;
+      }
+    }
     let visitDate = "";
     const targetIdx = cols.indexOf(genericName || brandName || "");
     if (targetIdx !== -1) {
