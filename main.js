@@ -300,8 +300,9 @@ function initApp() {
     reader.readAsDataURL(files[0]);
 
     try {
+      // 確保 worker 實例正常，若已終止或未初始化則建立
       if (!ocrWorker) {
-        ocrStatusText.textContent = '初始化 OCR 引擎...';
+        ocrStatusText.textContent = '載入 OCR 辨識引擎...';
         ocrWorker = await Tesseract.createWorker('eng+chi_tra', 1, {
           logger: m => {
             if (m.status === 'recognizing text') {
@@ -333,26 +334,47 @@ function initApp() {
           ? `正在辨識第 ${i + 1}/${files.length} 張圖片 (${file.name || '截圖'})...` 
           : '分析圖像文字...';
 
-        const result = await ocrWorker.recognize(file);
-        const rawText = result.data.text;
-        const preprocessedText = preprocessOcrText(rawText);
-        if (preprocessedText && preprocessedText.trim()) {
-          results.push(preprocessedText.trim());
+        try {
+          const result = await ocrWorker.recognize(file);
+          const rawText = result.data ? result.data.text : '';
+          const preprocessedText = preprocessOcrText(rawText);
+          if (preprocessedText && preprocessedText.trim()) {
+            results.push(preprocessedText.trim());
+          }
+        } catch (itemErr) {
+          console.warn(`Error recognizing image ${i+1}:`, itemErr);
+          // 若單張發生 worker 異常，使用 Tesseract.recognize 獨立呼叫嘗試挽救
+          try {
+            const fallbackRes = await Tesseract.recognize(file, 'eng+chi_tra');
+            const rawText = fallbackRes.data ? fallbackRes.data.text : '';
+            const preprocessedText = preprocessOcrText(rawText);
+            if (preprocessedText && preprocessedText.trim()) {
+              results.push(preprocessedText.trim());
+            }
+          } catch (fbErr) {
+            console.error('Fallback recognize error:', fbErr);
+          }
         }
       }
 
-      // If textarea already has content, append the new recognized text
-      const existingText = searchInput.value.trim();
-      const newText = results.join('\n');
-      const combinedText = existingText ? `${existingText}\n${newText}` : newText;
+      if (results.length > 0) {
+        const existingText = searchInput.value.trim();
+        const newText = results.join('\n');
+        const combinedText = existingText ? `${existingText}\n${newText}` : newText;
 
-      searchInput.value = combinedText;
-      handleSearch(combinedText);
+        searchInput.value = combinedText;
+        handleSearch(combinedText);
+      }
 
       ocrProgContainer.classList.add('hidden');
     } catch (err) {
-      console.error('OCR failed:', err);
-      alert('OCR 辨識失敗，請確認圖片格式是否正確！');
+      console.error('OCR failed with error:', err);
+      // 嘗試重建 worker
+      if (ocrWorker) {
+        try { await ocrWorker.terminate(); } catch (e) {}
+        ocrWorker = null;
+      }
+      alert(`OCR 辨識發生異常：${err.message || '請確認圖片或網路連線'}\n\n已為您重置辨識引擎，請再試一次！`);
       ocrProgContainer.classList.add('hidden');
     }
   }
