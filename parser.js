@@ -99,20 +99,21 @@ function preprocessOcrText(rawText) {
     let line = lines[i];
 
     // ── OCR 字元修正：替換常見數字/字母混淆 ──────────────────────────────
+    // 0. 清除健保碼中間夾雜的表格斜線/豎線（例如 BC233/4100 或 BC233|4100 -> BC23374100 或 BC23314100）
+    line = line.replace(/\b([A-Za-z]{1,3}\d{2,4})[\/\\|](\d{3,5})\b/g, (m, p1, p2) => {
+      // 在台灣健保碼中，斜線最常是 7 或 1 被誤判
+      return p1 + '7' + p2;
+    });
+
     // 修復首字元被誤讀：8C→BC, 0D→OD, 1BC→IBC（僅在明確為健保碼前置字母時）
     line = line.replace(/(?<![A-Za-z])8([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'B$1');
     line = line.replace(/(?<![A-Za-z])0([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'O$1');
     line = line.replace(/(?<![A-Za-z])1([A-Za-z][A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'I$1');
 
     // ── 僅修復確定是健保碼但夾雜了明顯 OCR 字母錯誤的 token ────────────────
-    // 策略：只修復「字母遠多於應有、但數字數足夠判定為健保碼」的 token
-    // 例如：Acs0s74100 (s→5 only, 保留正確的 6 不動)
-    // ⚠️ 過度積極的 s/o/l/i 全域替換會把 AC60574100 改成 AC50574100！
-    // 改為：只替換夾在已知數字之間的孤立字母（更保守）
     line = line.replace(/\b([A-Za-z]{1,3})((?=[0-9A-Za-z]{6,10}\b)[0-9A-Za-z]+)\b/g, (match, prefix, rest) => {
       const digitCount = (rest.match(/\d/g) || []).length;
       const letterCount = (rest.match(/[A-Za-z]/g) || []).length;
-      // Only repair if letters are minority (OCR errors) and total length looks like NHI code
       if (digitCount >= 5 && letterCount >= 1 && letterCount <= 3 && (prefix.length + rest.length) <= 12) {
         const fixedRest = rest.replace(/[sS]/g, c => /\d/.test(rest[rest.indexOf(c)-1]||'') || /\d/.test(rest[rest.indexOf(c)+1]||'') ? '5' : c)
                               .replace(/[oO]/g, c => /\d/.test(rest[rest.indexOf(c)-1]||'') || /\d/.test(rest[rest.indexOf(c)+1]||'') ? '0' : c);
