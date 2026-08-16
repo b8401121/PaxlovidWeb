@@ -48,7 +48,7 @@
   });
 })();
 
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
   // ─── 全域狀態 ─────────────────────────────────────────────────────────────
   let currentCat = null; // { contraindicated:[], interactive:[], safe:[], unknown:[] }
 
@@ -65,14 +65,39 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   Object.keys(themeBtns).forEach(k => themeBtns[k].addEventListener('click', () => setTheme(k)));
 
-  // ─── Tab Switching ──────────────────────────────────────────────────────────
+  // ─── Tab Switching (包含事件委派與直接綁定) ─────────────────────────────────
+  function switchTab(targetId, activeBtn) {
+    if (!targetId) return;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    
+    if (activeBtn) {
+      activeBtn.classList.add('active');
+    } else {
+      const b = document.querySelector(`.tab-btn[data-target="${targetId}"]`);
+      if (b) b.classList.add('active');
+    }
+    
+    const targetContent = document.getElementById(targetId);
+    if (targetContent) {
+      targetContent.classList.add('active');
+    }
+  }
+
   document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById(btn.dataset.target).classList.add('active');
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchTab(btn.dataset.target, btn);
     });
+  });
+
+  // 全域事件委派保護
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab-btn');
+    if (btn && btn.dataset.target) {
+      e.preventDefault();
+      switchTab(btn.dataset.target, btn);
+    }
   });
 
   // ─── DOM refs ───────────────────────────────────────────────────────────────
@@ -768,4 +793,10 @@ document.addEventListener('DOMContentLoaded', () => {
 </body>
 </html>`;
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
