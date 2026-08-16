@@ -112,8 +112,8 @@ function preprocessOcrText(rawText) {
       } else {
         brand = rightPart;
       }
-      // 去除 OCR 表格線符號造成的前綴垃圾（如 | / - 等）
-      brand = brand.replace(/^[\s|\-\/]+/, '').replace(/\s+/g, ' ').trim();
+      // 去除 OCR 表格線符號造成的前綴/尾綴垃圾（如 | / - 等）
+      brand = brand.replace(/^[\s|\-\/]+/, '').replace(/[\s|\-\/]+$/, '').replace(/\s+/g, ' ').trim();
 
       let generic = "";
       let searchStr = leftPart;
@@ -503,6 +503,15 @@ function parseAndCategorizeCloudPrescription(rawText) {
     const m = b.match(itemLineRe);
     if (m) { lastSource = m[2].trim(); }
     if (visitTypeRe.test(b)) { lastVisitType = b.trim(); }
+
+    // ── OCR 重組行：第一欄格式為「院所名稱（門診/住診/藥局）」
+    const firstCol = b.split('\t')[0];
+    const embeddedSrcMatch = firstCol.match(/^(.+?)（(門診|住診|藥局)）$/);
+    if (embeddedSrcMatch) {
+      lastSource = embeddedSrcMatch[1].trim();
+      lastVisitType = embeddedSrcMatch[2].trim();
+    }
+
     sourceMap[i] = { source: lastSource, visitType: lastVisitType };
   }
 
