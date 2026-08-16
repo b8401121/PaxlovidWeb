@@ -132,6 +132,30 @@ function preprocessOcrText(rawText) {
       let generic = "";
       let searchStr = leftPart;
       if (providerCode && leftPart.includes(providerCode)) {
+        // ── 備援：從院所代碼前方提取診所名稱（OCR 單列模式）────────────────────
+        // 當 OCR 將整列合併成一行時，診所名稱會出現在院所代碼（如 1301170017）前方
+        // 範例：「台北醫大 門診 1301170017 C9000 ... Furosemide AB453631G0」
+        if (!source) {
+          const beforeProvider = leftPart.split(providerCode)[0].trim();
+          // 移除數字和就醫別後剩下的應為診所名稱
+          const stripped = beforeProvider.replace(/門診|住診|藥局/g, ' ').replace(/\d+/g, ' ').trim();
+          // 取最後一段連續中文詞（通常是診所名稱）
+          const chunkMatch = stripped.match(/[\u4e00-\u9fa5]+(?:\s*[\u4e00-\u9fa5]+)*/g);
+          if (chunkMatch && chunkMatch.length > 0) {
+            const candidate = chunkMatch[chunkMatch.length - 1].replace(/\s+/g, '').trim();
+            const hasChinese = /[\u4e00-\u9fa5]/.test(candidate);
+            const isShort = candidate.length >= 2 && candidate.length <= 12;
+            const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明/.test(candidate);
+            if (hasChinese && isShort && !isDiagnosis) {
+              source = candidate;
+            }
+          }
+          // 也嘗試補抓就醫別
+          if (!visitType) {
+            const vtMatch = beforeProvider.match(/門診|住診|藥局/);
+            if (vtMatch) visitType = vtMatch[0];
+          }
+        }
         searchStr = leftPart.split(providerCode)[1].trim();
       }
 
