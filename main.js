@@ -441,6 +441,15 @@ function initApp() {
     const hasWarnings = currentCat.contraindicated.length + currentCat.interactive.length > 0;
     btnPrint.disabled = !hasWarnings;
     btnCopyText.disabled = !hasWarnings;
+
+    // 確保預設切換至第一頁籤「Paxlovid 交互作用評估」
+    const firstTabBtn = document.querySelector('.tab-btn[data-target="tab-auto"]');
+    if (firstTabBtn && !firstTabBtn.classList.contains('active')) {
+      switchTab('tab-auto', firstTabBtn);
+    }
+
+    // 平滑捲動至比對結果區域，提升使用者視覺回饋
+    resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // ─── Severity ──────────────────────────────────────────────────────────────
