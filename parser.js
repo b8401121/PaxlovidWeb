@@ -97,8 +97,22 @@ function preprocessOcrText(rawText) {
           providerCode = provMatch[1];
         } else if ((bLine === "門診" || bLine === "住診" || bLine === "藥局") && !visitType) {
           visitType = bLine;
-        } else if (!source && !bLine.startsWith('J') && !bLine.startsWith('I') && !bLine.startsWith('R') && !bLine.match(/^\d+$/)) {
-          source = bLine.replace(/^\d+\s+/, '').trim();
+        } else if (!source) {
+          // ── 嚴格驗證診所名稱 ────────────────────────────────────────────────
+          // 台灣健保診所名稱特徵：
+          //   1. 長度合理（去掉序號後 2~12 個字元）
+          //   2. 必須含有中文字元
+          //   3. 不能是疾病診斷名稱（含有常見診斷關鍵字）
+          //   4. 不能含有大量英文/數字（可能是診斷碼或 ATC 分類）
+          let candidate = bLine.replace(/^\d+\s+/, '').trim(); // 去掉前置序號
+          const hasChinese = /[\u4e00-\u9fa5]/.test(candidate);
+          const isShort = candidate.length >= 2 && candidate.length <= 12;
+          const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明/.test(candidate);
+          const isMostlyEnglish = (candidate.replace(/[^A-Za-z]/g, '').length / candidate.length) > 0.5;
+          const isJunkLine = /^[0-9\s\.\-\|\/\\@#\*\(\)]+$/.test(candidate);
+          if (hasChinese && isShort && !isDiagnosis && !isMostlyEnglish && !isJunkLine) {
+            source = candidate;
+          }
         }
       }
 
