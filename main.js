@@ -326,6 +326,23 @@ document.addEventListener('DOMContentLoaded', () => {
     return                                     { tag: 'caution', label: 'ℹ️ 未分類' };
   }
 
+  // ─── Date Formatter (民國年轉西元顯示與年份修復) ───────────────────────────
+  function fmtDate(d) {
+    if (!d) return '';
+    const parts = d.split(/[\/\.-]/);
+    if (parts.length >= 3) {
+      let y = parseInt(parts[0], 10);
+      if (y < 1911) {
+        y += 1911;
+        if (y < 2015 && (y + 100) <= (new Date().getFullYear() + 2)) {
+          y += 100;
+        }
+      }
+      return `${y}/${parts[1].padStart(2,'0')}/${parts[2].padStart(2,'0')}`;
+    }
+    return d;
+  }
+
   // ─── Categorised render ─────────────────────────────────────────────────────
   function renderCategories(cat) {
     categoryResults.innerHTML = '';
@@ -367,22 +384,6 @@ document.addEventListener('DOMContentLoaded', () => {
           ? `${item.source}${item.visitType ? '・' + item.visitType : ''}`
           : '';
 
-        // 就醫日期（民國年轉西元顯示）
-        function fmtDate(d) {
-          if (!d) return '';
-          const parts = d.split(/[\/\.-]/);
-          if (parts.length >= 3) {
-            let y = parseInt(parts[0], 10);
-            if (y < 1911) {
-              y += 1911;
-              if (y < 2015 && (y + 100) <= (new Date().getFullYear() + 2)) {
-                y += 100;
-              }
-            }
-            return `${y}/${parts[1].padStart(2,'0')}/${parts[2].padStart(2,'0')}`;
-          }
-          return d;
-        }
         const dateDisplay = dateStr ? fmtDate(dateStr) : '';
 
         // DICT suggestion
