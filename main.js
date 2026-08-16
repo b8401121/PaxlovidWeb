@@ -155,24 +155,24 @@ function initApp() {
     }
   });
 
-  // ─── OCR Graphic Recognition ───────────────────────────────────────────────
+  // ─── OCR Graphic Recognition (支援多張截圖連續辨識) ─────────────────────
   let ocrWorker = null;
 
-  async function handleImageOCR(file) {
-    if (!file) return;
+  async function handleMultipleImagesOCR(files) {
+    if (!files || files.length === 0) return;
 
-    // Show preview thumbnail
+    // Show progress UI
+    ocrProgContainer.classList.remove('hidden');
+    ocrStatusText.textContent = `準備辨識 (共 ${files.length} 張圖片)...`;
+    ocrPercentText.textContent = '0%';
+    ocrProgressBar.style.width = '0%';
+
+    // Show preview of the first image
     const reader = new FileReader();
     reader.onload = e => {
       ocrPreviewImg.src = e.target.result;
     };
-    reader.readAsDataURL(file);
-
-    // Show progress UI
-    ocrProgContainer.classList.remove('hidden');
-    ocrStatusText.textContent = '載入圖片中...';
-    ocrPercentText.textContent = '0%';
-    ocrProgressBar.style.width = '0%';
+    reader.readAsDataURL(files[0]);
 
     try {
       if (!ocrWorker) {
@@ -181,7 +181,6 @@ function initApp() {
           logger: m => {
             if (m.status === 'recognizing text') {
               const progress = Math.round(m.progress * 100);
-              ocrStatusText.textContent = `文字辨識中...`;
               ocrPercentText.textContent = `${progress}%`;
               ocrProgressBar.style.width = `${progress}%`;
             } else {
@@ -193,16 +192,37 @@ function initApp() {
         });
       }
 
-      ocrStatusText.textContent = '分析圖像文字...';
-      const result = await ocrWorker.recognize(file);
-      const rawText = result.data.text;
+      const results = [];
 
-      // Preprocess raw OCR text to standard tab-separated format
-      const preprocessedText = preprocessOcrText(rawText);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Update thumbnail for current image
+        const imgReader = new FileReader();
+        imgReader.onload = e => {
+          ocrPreviewImg.src = e.target.result;
+        };
+        imgReader.readAsDataURL(file);
 
-      // Fill and trigger parse
-      searchInput.value = preprocessedText;
-      handleSearch(preprocessedText);
+        ocrStatusText.textContent = files.length > 1 
+          ? `正在辨識第 ${i + 1}/${files.length} 張圖片 (${file.name || '截圖'})...` 
+          : '分析圖像文字...';
+
+        const result = await ocrWorker.recognize(file);
+        const rawText = result.data.text;
+        const preprocessedText = preprocessOcrText(rawText);
+        if (preprocessedText && preprocessedText.trim()) {
+          results.push(preprocessedText.trim());
+        }
+      }
+
+      // If textarea already has content, append the new recognized text
+      const existingText = searchInput.value.trim();
+      const newText = results.join('\n');
+      const combinedText = existingText ? `${existingText}\n${newText}` : newText;
+
+      searchInput.value = combinedText;
+      handleSearch(combinedText);
 
       ocrProgContainer.classList.add('hidden');
     } catch (err) {
@@ -226,23 +246,26 @@ function initApp() {
     ocrProgContainer.classList.add('hidden');
   });
 
-  // Paste image handler (whole page)
+  // Paste image handler (whole page - gathers all pasted image items)
   document.addEventListener('paste', e => {
     const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
     if (!items) return;
+    const imageFiles = [];
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile();
         if (file) {
-          handleImageOCR(file);
-          e.preventDefault();
-          break;
+          imageFiles.push(file);
         }
       }
     }
+    if (imageFiles.length > 0) {
+      handleMultipleImagesOCR(imageFiles);
+      e.preventDefault();
+    }
   });
 
-  // Drag and drop image
+  // Drag and drop image (supports multiple files dropped at once)
   const dropZone = searchInput;
   dropZone.addEventListener('dragover', e => {
     e.preventDefault();
@@ -262,16 +285,19 @@ function initApp() {
     dropZone.style.borderColor = '';
     const files = e.dataTransfer?.files;
     if (files && files.length > 0) {
+      const imageFiles = [];
       for (const file of files) {
         if (file.type.startsWith('image/')) {
-          handleImageOCR(file);
-          break;
+          imageFiles.push(file);
         }
+      }
+      if (imageFiles.length > 0) {
+        handleMultipleImagesOCR(imageFiles);
       }
     }
   });
 
-  // File picker upload
+  // File picker upload (supports selecting multiple images)
   btnOcrUpload.addEventListener('click', () => {
     ocrFileInput.click();
   });
@@ -279,7 +305,10 @@ function initApp() {
   ocrFileInput.addEventListener('change', e => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      handleImageOCR(files[0]);
+      const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+      if (imageFiles.length > 0) {
+        handleMultipleImagesOCR(imageFiles);
+      }
     }
     ocrFileInput.value = '';
   });

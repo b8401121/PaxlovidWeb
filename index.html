@@ -55,8 +55,8 @@
     <main class="app-main">
       <div class="card input-area">
         <h2 style="margin:0 0 12px 0; font-size:1.1rem">💊 Paxlovid 交互作用比對引擎</h2>
-        <textarea id="search-input" placeholder="請在此貼上健保雲端藥歷文字，或直接貼上 (Ctrl+V) / 拖入藥歷截圖進行 OCR 辨識（⚠️ 註：圖片辨識僅比對藥物交互作用，無法辨識開方醫院名稱）。"></textarea>
-        <input type="file" id="ocr-file-input" accept="image/*" style="display:none">
+        <textarea id="search-input" placeholder="請在此貼上健保雲端藥歷文字，或直接貼上 (Ctrl+V) / 拖入多張藥歷截圖進行 OCR 辨識（⚠️ 註：圖片辨識僅比對藥物交互作用，無法辨識開方醫院名稱）。"></textarea>
+        <input type="file" id="ocr-file-input" accept="image/*" multiple style="display:none">
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
           <button id="btn-paste" class="btn-primary">📋 貼上雲端藥歷</button>
           <button id="btn-ocr-upload" class="btn-secondary">📷 圖片/截圖辨識</button>
@@ -167,8 +167,8 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="data.js?v=2.2"></script>
-  <script src="parser.js?v=2.2"></script>
-  <script src="main.js?v=2.2"></script>
+  <script src="data.js?v=2.3"></script>
+  <script src="parser.js?v=2.3"></script>
+  <script src="main.js?v=2.3"></script>
 </body>
 </html>
