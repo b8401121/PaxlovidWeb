@@ -241,25 +241,28 @@ function initApp() {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
-        // 裁切比例（根據典型 1920x1080 瀏覽器截圖）
-        // 上方：約 13% 為瀏覽器標籤列 + 網址列 + 健保系統選單
-        // 下方：約 7%  為 Windows 工作列
-        const cropTopRatio   = 0.13;
-        const cropBottomRatio = 0.07;
+        // 裁切比例（保守裁切，確保表格頂部與底部行不被切除）
+        // 上方：約 8%（避開最頂部瀏覽器標籤）
+        // 下方：約 4%（避開 Windows 工作列）
+        const cropTopRatio   = 0.08;
+        const cropBottomRatio = 0.04;
         const cropTop    = Math.round(img.height * cropTopRatio);
         const cropBottom = Math.round(img.height * cropBottomRatio);
         const newHeight  = img.height - cropTop - cropBottom;
 
-        canvas.width  = img.width;
-        canvas.height = newHeight;
+        // 放大 1.5 倍提升 OCR 解析度（對小字體健保代碼辨識率大幅提升）
+        const scale = 1.5;
+        canvas.width  = Math.round(img.width * scale);
+        canvas.height = Math.round(newHeight * scale);
 
-        // 繪製裁切後的圖片
-        ctx.drawImage(img, 0, cropTop, img.width, newHeight, 0, 0, img.width, newHeight);
+        ctx.imageSmoothingQuality = 'high';
+        // 繪製裁切並放大後的圖片
+        ctx.drawImage(img, 0, cropTop, img.width, newHeight, 0, 0, canvas.width, canvas.height);
 
-        // 對比度增強（讓綠白交替行的文字更清晰）
+        // 對比度增強
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const d = imageData.data;
-        const contrast = 1.25; // 增強倍率
+        const contrast = 1.2;
         for (let p = 0; p < d.length; p += 4) {
           d[p]   = Math.min(255, Math.max(0, (d[p]   - 128) * contrast + 128));
           d[p+1] = Math.min(255, Math.max(0, (d[p+1] - 128) * contrast + 128));
