@@ -99,23 +99,24 @@ function preprocessOcrText(rawText) {
     let line = lines[i];
 
     // ── OCR 字元修正：替換常見數字/字母混淆 ──────────────────────────────
-    // 在整行中尋找可能被誤讀為數字的健保碼首字元，如 8C→BC, 0D→OD, 1B→IB 等
+    // 修復首字元被誤讀：8C→BC, 0D→OD, 1BC→IBC（僅在明確為健保碼前置字母時）
     line = line.replace(/(?<![A-Za-z])8([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'B$1');
     line = line.replace(/(?<![A-Za-z])0([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'O$1');
     line = line.replace(/(?<![A-Za-z])1([A-Za-z][A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'I$1');
 
-    // 修復健保碼內部數字被誤認為字母（如 Acs0s74100 -> AC50574100）
-    line = line.replace(/\b([A-Za-z]{1,3}[0-9A-Za-z]{7,10})\b/g, (match) => {
-      const digitCount = (match.match(/\d/g) || []).length;
-      if (digitCount >= 4 && match.length >= 8 && match.length <= 12) {
-        const prefix = match.substring(0, 2).toUpperCase();
-        let rest = match.substring(2);
-        rest = rest.replace(/s/gi, '5')
-                   .replace(/o/gi, '0')
-                   .replace(/[li]/gi, '1')
-                   .replace(/z/gi, '2')
-                   .replace(/b/gi, '8');
-        return prefix + rest;
+    // ── 僅修復確定是健保碼但夾雜了明顯 OCR 字母錯誤的 token ────────────────
+    // 策略：只修復「字母遠多於應有、但數字數足夠判定為健保碼」的 token
+    // 例如：Acs0s74100 (s→5 only, 保留正確的 6 不動)
+    // ⚠️ 過度積極的 s/o/l/i 全域替換會把 AC60574100 改成 AC50574100！
+    // 改為：只替換夾在已知數字之間的孤立字母（更保守）
+    line = line.replace(/\b([A-Za-z]{1,3})((?=[0-9A-Za-z]{6,10}\b)[0-9A-Za-z]+)\b/g, (match, prefix, rest) => {
+      const digitCount = (rest.match(/\d/g) || []).length;
+      const letterCount = (rest.match(/[A-Za-z]/g) || []).length;
+      // Only repair if letters are minority (OCR errors) and total length looks like NHI code
+      if (digitCount >= 5 && letterCount >= 1 && letterCount <= 3 && (prefix.length + rest.length) <= 12) {
+        const fixedRest = rest.replace(/[sS]/g, c => /\d/.test(rest[rest.indexOf(c)-1]||'') || /\d/.test(rest[rest.indexOf(c)+1]||'') ? '5' : c)
+                              .replace(/[oO]/g, c => /\d/.test(rest[rest.indexOf(c)-1]||'') || /\d/.test(rest[rest.indexOf(c)+1]||'') ? '0' : c);
+        return prefix.toUpperCase() + fixedRest;
       }
       return match;
     });
@@ -300,10 +301,30 @@ function searchInteractions(text) {
   const re1 = /^(\S+)\s+(.*?\(.*?\))\s+(\S+)\s+(\S+)\s+(\S+)\s+(.*?。)\s*(.*)$/;
   const re2 = /^(\S+)\s+(.*?\(.*?\))\s+(\S+)\s+(\S+)\s+(\S+)\s+(.*)$/;
 
+  // Brand name → generic name aliases for OCR (ensures brand names read from screenshots still match)
+  const brandAliasReplacer = (line) => line
+    .replace(/\bdiovan\b/gi, 'valsartan')
+    .replace(/\bconcor\b/gi, 'bisoprolol')
+    .replace(/\beltroxin\b/gi, 'levothyroxine')
+    .replace(/\ballegra\b/gi, 'fexofenadine')
+    .replace(/\bdex-ctm\b/gi, 'dexchlorpheniramine')
+    .replace(/\beuricon\b/gi, 'benzbromarone')
+    .replace(/\bartelac\b/gi, 'hypromellose')
+    .replace(/\bkary\s*uni\b/gi, 'pirenoxine')
+    .replace(/\bdufanas\b/gi, 'azelastine')
+    .replace(/\btamlosin\b/gi, 'tamsulosin')
+    .replace(/\bfronil\b/gi, 'imipramine')
+    .replace(/\bactein\b/gi, 'acetylcysteine')
+    .replace(/\bultibro\b/gi, 'indacaterol')
+    .replace(/\bsecorine\b/gi, 'methylephedrine')
+    .replace(/\bkalimate\b/gi, 'calcium polystyrene')
+    .replace(/\bdestone\b/gi, 'potassium citrate');
+
   const interactions = medicalData.paxlovid_interactions;
 
   for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-    const line = lines[lineIdx];
+    const lineRaw = lines[lineIdx];
+    const line = brandAliasReplacer(lineRaw); // apply brand→generic substitution for OCR
     const lineU = line.toUpperCase();
 
     for (const item of interactions) {
@@ -567,8 +588,30 @@ function parseAndCategorizeCloudPrescription(rawText) {
     .replace(/\；/g, ';')
     .replace(/\n+/g, '；');
 
-  // Apply HTA brand name replacements
+  // Apply HTA brand name replacements (商品名→學名，讓 OCR 讀到商品名也能比對）
   txt = txt
+    .replace(/\bdiovan\b/gi, 'valsartan')
+    .replace(/\bconcor\b/gi, 'bisoprolol')
+    .replace(/\beltroxin\b/gi, 'levothyroxine')
+    .replace(/\baltace\b/gi, 'ramipril')
+    .replace(/\bcrestor\b/gi, 'rosuvastatin')
+    .replace(/\blipitor\b/gi, 'atorvastatin')
+    .replace(/\bzocor\b/gi, 'simvastatin')
+    .replace(/\bmevacor\b/gi, 'lovastatin')
+    .replace(/\baltoprev\b/gi, 'lovastatin')
+    .replace(/\ballegra\b/gi, 'fexofenadine')
+    .replace(/\bdex-ctm\b/gi, 'dexchlorpheniramine')
+    .replace(/\beuricon\b/gi, 'benzbromarone')
+    .replace(/\bartelac\b/gi, 'hypromellose')
+    .replace(/\bkary\s*uni\b/gi, 'pirenoxine')
+    .replace(/\bdufanas\b/gi, 'azelastine')
+    .replace(/\btamlosin\b/gi, 'tamsulosin')
+    .replace(/\bfronil\b/gi, 'imipramine')
+    .replace(/\bactein\b/gi, 'acetylcysteine')
+    .replace(/\bultibro\b/gi, 'indacaterol')
+    .replace(/\bsecorine\b/gi, 'methylephedrine')
+    .replace(/\bkalimate\b/gi, 'calcium polystyrene')
+    .replace(/\bdestone\b/gi, 'potassium citrate')
     .replace(/brilinta/gi, 'ticagrelor')
     .replace(/xarelto/gi, 'rivaroxaban')
     .replace(/eliquis/gi, 'apixaban')
