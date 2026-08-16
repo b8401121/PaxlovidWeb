@@ -229,6 +229,57 @@ function initApp() {
   // ─── OCR Graphic Recognition (支援多張截圖連續辨識) ─────────────────────
   let ocrWorker = null;
 
+  /**
+   * 截圖 OCR 前處理：裁切掉瀏覽器工具列（上方）與 Windows 工作列（下方）
+   * 並提升對比度，讓 Tesseract 更容易辨識表格文字
+   */
+  async function preprocessImageForOCR(imageFile) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(imageFile);
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // 裁切比例（根據典型 1920x1080 瀏覽器截圖）
+        // 上方：約 13% 為瀏覽器標籤列 + 網址列 + 健保系統選單
+        // 下方：約 7%  為 Windows 工作列
+        const cropTopRatio   = 0.13;
+        const cropBottomRatio = 0.07;
+        const cropTop    = Math.round(img.height * cropTopRatio);
+        const cropBottom = Math.round(img.height * cropBottomRatio);
+        const newHeight  = img.height - cropTop - cropBottom;
+
+        canvas.width  = img.width;
+        canvas.height = newHeight;
+
+        // 繪製裁切後的圖片
+        ctx.drawImage(img, 0, cropTop, img.width, newHeight, 0, 0, img.width, newHeight);
+
+        // 對比度增強（讓綠白交替行的文字更清晰）
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imageData.data;
+        const contrast = 1.25; // 增強倍率
+        for (let p = 0; p < d.length; p += 4) {
+          d[p]   = Math.min(255, Math.max(0, (d[p]   - 128) * contrast + 128));
+          d[p+1] = Math.min(255, Math.max(0, (d[p+1] - 128) * contrast + 128));
+          d[p+2] = Math.min(255, Math.max(0, (d[p+2] - 128) * contrast + 128));
+        }
+        ctx.putImageData(imageData, 0, 0);
+
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob) => {
+          resolve(new File([blob], imageFile.name || 'screenshot.png', { type: 'image/png' }));
+        }, 'image/png');
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(imageFile); // 若預處理失敗，使用原始檔案
+      };
+      img.src = url;
+    });
+  }
+
   async function handleMultipleImagesOCR(files) {
     if (!files || files.length === 0) return;
 
@@ -261,6 +312,8 @@ function initApp() {
             }
           }
         });
+        // 使用 PSM 11（稀疏文字模式）更適合表格截圖掃描
+        await ocrWorker.setParameters({ tessedit_pageseg_mode: '11' });
       }
 
       const results = [];
@@ -276,10 +329,17 @@ function initApp() {
         imgReader.readAsDataURL(file);
 
         ocrStatusText.textContent = files.length > 1 
+          ? `正在預處理第 ${i + 1}/${files.length} 張圖片...` 
+          : '圖片預處理中...';
+
+        // 先裁切瀏覽器工具列與工作列，再進行 OCR
+        const processedFile = await preprocessImageForOCR(file);
+
+        ocrStatusText.textContent = files.length > 1 
           ? `正在辨識第 ${i + 1}/${files.length} 張圖片 (${file.name || '截圖'})...` 
           : '分析圖像文字...';
 
-        const result = await ocrWorker.recognize(file);
+        const result = await ocrWorker.recognize(processedFile);
         const rawText = result.data.text;
         const preprocessedText = preprocessOcrText(rawText);
         if (preprocessedText && preprocessedText.trim()) {
