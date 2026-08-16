@@ -639,12 +639,10 @@ function parseAndCategorizeCloudPrescription(rawText) {
     return { contraindicated, interactive, safe, unknown };
   }
 
-  // Exact HTA normalization: replace newlines and semicolons with '；'
+  // Exact HTA normalization: remove header artifacts and normalize line endings
   let txt = rawText
     .replace(/\s*藥\s*品\s*名\s*稱/g, '')
-    .replace(/\r/g, '')
-    .replace(/\；/g, ';')
-    .replace(/\n+/g, '；');
+    .replace(/\r/g, '');
 
   // Apply HTA brand name replacements (商品名→學名，讓 OCR 讀到商品名也能比對）
   txt = txt
@@ -688,10 +686,11 @@ function parseAndCategorizeCloudPrescription(rawText) {
     .replace(/jardiance/gi, 'jardiance含有empagliflozin')
     .replace(/qtern/gi, 'qtern含有saxagliptin')
     .replace(/ryzodeg/gi, 'ryzodeg含有insulin')
-.replace(/entresto/gi, 'entresto含有sacubitril')
+    .replace(/entresto/gi, 'entresto含有sacubitril')
     .replace(/caduet/gi, 'caduet含有atorvastatin');
 
-  const blocks = txt.split('；').map(b => b.trim()).filter(b => b.length > 0);
+  // Split by line breaks (if tab-delimited lines or OCR lines)
+  const blocks = txt.split(/[\r\n]+/).map(b => b.trim()).filter(b => b.length > 0);
   const codeRe = /^[A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3}(?:（[^）]+）|\([^)]+\))?$/;
   const dateRe = /^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}/;
 
