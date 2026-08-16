@@ -1,4 +1,105 @@
+function preprocessOcrText(rawText) {
+  if (!rawText || !rawText.trim()) return rawText;
+
+  const lines = rawText.split(/[\r\n]+/).map(l => l.trim()).filter(l => l.length > 0);
+  const reconstructedLines = [];
+  let buffer = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const codeMatch = line.match(/\b([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})\b/);
+    
+    if (codeMatch && !line.includes('\t')) {
+      const code = codeMatch[1];
+      const dateMatch = line.match(/(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/);
+      const date = dateMatch ? dateMatch[1] : "";
+
+      let source = "";
+      let visitType = "";
+      let providerCode = "";
+
+      for (let j = buffer.length - 1; j >= 0; j--) {
+        const bLine = buffer[j];
+        const provMatch = bLine.match(/\b(\d[A-Za-z0-9]{9})\b/);
+        if (provMatch && !providerCode) {
+          providerCode = provMatch[1];
+        } else if ((bLine === "門診" || bLine === "住診" || bLine === "藥局") && !visitType) {
+          visitType = bLine;
+        } else if (!source && !bLine.startsWith('J') && !bLine.startsWith('I') && !bLine.startsWith('R') && !bLine.match(/^\d+$/)) {
+          source = bLine.replace(/^\d+\s+/, '').trim();
+        }
+      }
+
+      const parts = line.split(code);
+      const leftPart = parts[0].trim();
+      const rightPart = parts[1] ? parts[1].trim() : "";
+
+      let brand = "";
+      if (rightPart && date) {
+        brand = rightPart.split(date)[0].trim();
+      } else {
+        brand = rightPart;
+      }
+      brand = brand.replace(/\s+/g, ' ').trim();
+
+      let generic = "";
+      let searchStr = leftPart;
+      if (providerCode && leftPart.includes(providerCode)) {
+        searchStr = leftPart.split(providerCode)[1].trim();
+      }
+
+      let lastChineseIdx = -1;
+      for (let k = 0; k < searchStr.length; k++) {
+        if (/[\u4e00-\u9fa5]/.test(searchStr[k])) {
+          lastChineseIdx = k;
+        }
+      }
+
+      let englishPart = lastChineseIdx !== -1 ? searchStr.substring(lastChineseIdx + 1).trim() : searchStr;
+
+      if (englishPart.startsWith('(') || englishPart.startsWith('（')) {
+        const openChar = englishPart[0];
+        const closeChar = openChar === '(' ? ')' : '）';
+        const closeIdx = englishPart.indexOf(closeChar);
+        if (closeIdx !== -1) {
+          englishPart = englishPart.substring(closeIdx + 1).trim();
+        }
+      }
+
+      englishPart = englishPart.trim();
+      if (englishPart.toUpperCase().startsWith('Y ') || englishPart.toUpperCase().startsWith('Y\t')) {
+        englishPart = englishPart.substring(2).trim();
+      } else if (englishPart.toUpperCase() === 'Y') {
+        englishPart = "";
+      }
+
+      generic = englishPart.trim();
+
+      const combinedSource = source || "雲端藥歷";
+      const finalSource = visitType ? `${combinedSource}（${visitType}）` : combinedSource;
+      
+      const reconstructed = `${finalSource}\t${generic}\t${code}\t${brand}\t${date}`;
+      reconstructedLines.push(reconstructed);
+      
+      buffer = [];
+    } else {
+      if (line.includes('\t')) {
+        reconstructedLines.push(line);
+      } else {
+        buffer.push(line);
+      }
+    }
+  }
+
+  if (buffer.length > 0) {
+    reconstructedLines.push(...buffer);
+  }
+
+  return reconstructedLines.join('\n');
+}
+
 function searchInteractions(text) {
+  text = preprocessOcrText(text);
   const found = [];
   if (!text || !text.trim()) {
     return found;
@@ -285,6 +386,7 @@ const SAFE_KEYWORDS = [
 ];
 
 function parseAndCategorizeCloudPrescription(rawText) {
+  rawText = preprocessOcrText(rawText);
   const contraindicated = [];
   const interactive = [];
   const safe = [];

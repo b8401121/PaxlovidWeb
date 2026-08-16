@@ -90,6 +90,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnDoPrint       = document.getElementById('btn-do-print');
   const btnClosePreview  = document.getElementById('btn-close-preview');
 
+  // OCR elements
+  const btnOcrUpload     = document.getElementById('btn-ocr-upload');
+  const ocrFileInput     = document.getElementById('ocr-file-input');
+  const ocrProgContainer = document.getElementById('ocr-progress-container');
+  const ocrPreviewImg    = document.getElementById('ocr-preview-img');
+  const ocrStatusText    = document.getElementById('ocr-status-text');
+  const ocrPercentText   = document.getElementById('ocr-percent-text');
+  const ocrProgressBar   = document.getElementById('ocr-progress-bar');
+  const btnCancelOcr     = document.getElementById('btn-cancel-ocr');
+
   // ─── Paste ──────────────────────────────────────────────────────────────────
   btnPaste.addEventListener('click', async () => {
     try {
@@ -109,6 +119,141 @@ document.addEventListener('DOMContentLoaded', () => {
     currentCat = null;
     btnPrint.disabled = true;
     btnCopyText.disabled = true;
+
+    // Reset OCR
+    ocrProgContainer.classList.add('hidden');
+    if (ocrWorker) {
+      ocrWorker.terminate().catch(console.warn);
+      ocrWorker = null;
+    }
+  });
+
+  // ─── OCR Graphic Recognition ───────────────────────────────────────────────
+  let ocrWorker = null;
+
+  async function handleImageOCR(file) {
+    if (!file) return;
+
+    // Show preview thumbnail
+    const reader = new FileReader();
+    reader.onload = e => {
+      ocrPreviewImg.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+
+    // Show progress UI
+    ocrProgContainer.classList.remove('hidden');
+    ocrStatusText.textContent = '載入圖片中...';
+    ocrPercentText.textContent = '0%';
+    ocrProgressBar.style.width = '0%';
+
+    try {
+      if (!ocrWorker) {
+        ocrStatusText.textContent = '初始化 OCR 引擎...';
+        ocrWorker = await Tesseract.createWorker({
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              const progress = Math.round(m.progress * 100);
+              ocrStatusText.textContent = `文字辨識中...`;
+              ocrPercentText.textContent = `${progress}%`;
+              ocrProgressBar.style.width = `${progress}%`;
+            } else {
+              ocrStatusText.textContent = m.status === 'loading tesseract core' ? '載入辨識核心...' : 
+                                         m.status === 'loading language traineddata' ? '載入語言數據包...' :
+                                         m.status === 'initializing api' ? '初始化辨識介面...' : '準備辨識...';
+            }
+          }
+        });
+        await ocrWorker.loadLanguage('eng+chi_tra');
+        await ocrWorker.initialize('eng+chi_tra');
+      }
+
+      ocrStatusText.textContent = '分析圖像文字...';
+      const result = await ocrWorker.recognize(file);
+      const text = result.data.text;
+
+      // Fill and trigger parse
+      searchInput.value = text;
+      handleSearch(text);
+
+      ocrProgContainer.classList.add('hidden');
+    } catch (err) {
+      console.error('OCR failed:', err);
+      alert('OCR 辨識失敗，請確認圖片格式是否正確！');
+      ocrProgContainer.classList.add('hidden');
+    }
+  }
+
+  // Cancel OCR
+  btnCancelOcr.addEventListener('click', async () => {
+    if (ocrWorker) {
+      ocrStatusText.textContent = '正在取消辨識...';
+      try {
+        await ocrWorker.terminate();
+      } catch (e) {
+        console.warn(e);
+      }
+      ocrWorker = null;
+    }
+    ocrProgContainer.classList.add('hidden');
+  });
+
+  // Paste image handler (whole page)
+  document.addEventListener('paste', e => {
+    const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          handleImageOCR(file);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  });
+
+  // Drag and drop image
+  const dropZone = searchInput;
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.style.borderStyle = 'solid';
+    dropZone.style.borderColor = 'var(--primary)';
+  });
+
+  dropZone.addEventListener('dragleave', e => {
+    e.preventDefault();
+    dropZone.style.borderStyle = '';
+    dropZone.style.borderColor = '';
+  });
+
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.style.borderStyle = '';
+    dropZone.style.borderColor = '';
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      for (const file of files) {
+        if (file.type.startsWith('image/')) {
+          handleImageOCR(file);
+          break;
+        }
+      }
+    }
+  });
+
+  // File picker upload
+  btnOcrUpload.addEventListener('click', () => {
+    ocrFileInput.click();
+  });
+
+  ocrFileInput.addEventListener('change', e => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleImageOCR(files[0]);
+    }
+    ocrFileInput.value = '';
   });
 
   // ─── Live type ─────────────────────────────────────────────────────────────
