@@ -138,42 +138,71 @@ function initApp() {
 
   // ─── Paste Image from Clipboard ──────────────────────────────────────────────
   if (btnPasteImage) {
-    btnPasteImage.addEventListener('click', async () => {
-      try {
-        if (!navigator.clipboard || !navigator.clipboard.read) {
-          alert('您的瀏覽器不支援直接讀取剪貼簿圖片。\n請直接在頁面上按下鍵盤 Ctrl+V 貼上截圖！');
-          return;
-        }
+    btnPasteImage.addEventListener('click', async (e) => {
+      e.preventDefault();
+      console.log('btnPasteImage clicked');
 
-        const clipboardItems = await navigator.clipboard.read();
-        const imageFiles = [];
+      // 檢查瀏覽器是否支援 Async Clipboard API
+      if (!navigator.clipboard) {
+        alert('您的瀏覽器不支援剪貼簿 API，請直接點選下方輸入框並按「Ctrl + V」貼上截圖！');
+        searchInput.focus();
+        return;
+      }
 
-        for (const item of clipboardItems) {
-          for (const type of item.types) {
-            if (type.startsWith('image/')) {
-              const blob = await item.getType(type);
-              const file = new File([blob], `clipboard_${Date.now()}.${type.split('/')[1] || 'png'}`, { type });
-              imageFiles.push(file);
+      // 優先使用 read() 讀取剪貼簿二進位物件 (圖片)
+      if (typeof navigator.clipboard.read === 'function') {
+        try {
+          // 嘗試向瀏覽器請求剪貼簿讀取權限 (若支援 Permissions API)
+          if (navigator.permissions && navigator.permissions.query) {
+            try {
+              const perm = await navigator.permissions.query({ name: 'clipboard-read' });
+              console.log('Clipboard permission state:', perm.state);
+            } catch (pErr) {
+              // 部分瀏覽器不支援 clipboard-read 查詢，忽略即可
             }
           }
-        }
 
-        if (imageFiles.length > 0) {
-          handleMultipleImagesOCR(imageFiles);
-        } else {
-          // If no image found, check if there's text in clipboard
-          const text = await navigator.clipboard.readText();
-          if (text && text.trim()) {
-            searchInput.value = text;
-            handleSearch(text);
-          } else {
-            alert('剪貼簿中未偵測到圖片！\n請先截圖 (Win+Shift+S 或 Alt+PrintScreen) 後，再點擊此按鈕或按 Ctrl+V 貼上。');
+          const clipboardItems = await navigator.clipboard.read();
+          const imageFiles = [];
+
+          for (const item of clipboardItems) {
+            for (const type of item.types) {
+              if (type.startsWith('image/')) {
+                const blob = await item.getType(type);
+                const file = new File([blob], `clipboard_${Date.now()}.${type.split('/')[1] || 'png'}`, { type });
+                imageFiles.push(file);
+              }
+            }
           }
+
+          if (imageFiles.length > 0) {
+            console.log(`Found ${imageFiles.length} image(s) in clipboard.`);
+            handleMultipleImagesOCR(imageFiles);
+            return;
+          }
+        } catch (readErr) {
+          console.warn('navigator.clipboard.read() error:', readErr);
         }
-      } catch (err) {
-        console.warn('Clipboard image read failed:', err);
-        alert('無法直接存取剪貼簿圖片（可能受瀏覽器權限限制）。\n請直接點擊輸入框後按鍵盤「Ctrl + V」即可貼上截圖辨識！');
       }
+
+      // 若讀取圖片失敗或無圖片，嘗試讀取文字
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text && text.trim()) {
+          console.log('Found text in clipboard instead of image.');
+          const existingText = searchInput.value.trim();
+          const combinedText = existingText ? `${existingText}\n${text.trim()}` : text.trim();
+          searchInput.value = combinedText;
+          handleSearch(combinedText);
+          return;
+        }
+      } catch (textErr) {
+        console.warn('navigator.clipboard.readText() error:', textErr);
+      }
+
+      // 剪貼簿為空或被安全策略攔截時的友善提示
+      alert('剪貼簿中未偵測到截圖或讀取權限受限。\n\n【建議操作】：\n1. 按 Win + Shift + S 截取藥歷畫面。\n2. 點擊本網頁任一處，直接按鍵盤「Ctrl + V」即可立即自動辨識！');
+      searchInput.focus();
     });
   }
 
