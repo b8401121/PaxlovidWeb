@@ -24,6 +24,12 @@ const NHI_CODE_LOOKUP = {
   "BC15292421": { generic: "Carteolol Hcl", brand: "ARTEOPTIC 2% OPHTHALMIC SOLUTION", severity: "safe" },
   "AC577911G0": { generic: "Famotidine", brand: "Famotidine 20mg", severity: "safe" },
   "AC57791160": { generic: "Famotidine", brand: "Famotidine 20mg", severity: "safe" },
+  "BC25072100": { generic: "Valsartan ; Amlodipine Besylate", brand: "Exforge 5/160mg", severity: "interactive" },
+  "BC09554100": { generic: "Digoxin", brand: "LANOXIN DIGOXIN 0.25MG", severity: "interactive" },
+  "AC22908100": { generic: "Spironolactone", brand: "SPIRONOLACTONE TABLETS", severity: "safe" },
+  "AC46166100": { generic: "Iron (Hydroxide Polymaltose Complex)", brand: "TEDALIN CHEWABLE TABLETS", severity: "safe" },
+  "A026078100": { generic: "Phenylephrine ; Brompheniramine", brand: "NOSEMIN TABLETS", severity: "safe" },
+  "AC19706100": { generic: "Diphenidol Hcl", brand: "DIFENDOL S.C. TABLETS", severity: "safe" },
   "BC25413100": { generic: "Tamsulosin Hcl", brand: "Harnalidge OCAS 0.4mg", severity: "interactive" },
   "BC22768100": { generic: "Risperidone", brand: "RISPERDAL Film Coated TABLET 2MG", severity: "interactive" },
   "AC47486197": { generic: "Piracetam", brand: "HAMGO GRANULES 1200MG", severity: "safe" },
@@ -1129,6 +1135,15 @@ function parseAndCategorizeCloudPrescription(rawText) {
       else genericName = matchedKw.charAt(0).toUpperCase() + matchedKw.slice(1);
     }
 
+    const matchCode = lineCode ? (lineCode.match(/([A-Za-z]{1,2}\d{5,10}[A-Za-z0-9]{0,3})/) || [null, ''])[1].toUpperCase() : '';
+    const codeLookupKey = matchCode && !NHI_CODE_LOOKUP[matchCode] && matchCode.length >= 10 ? matchCode.substring(0, 10) : matchCode;
+    const standardGeneric = codeLookupKey && NHI_CODE_LOOKUP[codeLookupKey] ? NHI_CODE_LOOKUP[codeLookupKey].generic : '';
+    const rawKey = (standardGeneric || matchedKw || genericName || brandName || blockLower).toLowerCase();
+    const drugKey = rawKey.replace(/\s*[\(\（].*?[\)\）]/g, '')
+                          .replace(/\s+(calcium|besylate|mesylate|hcl|hydrochloride|sodium|potassium|tartrate|fumarate|maleate|succinate|sulfate|nitrate|phosphate|citrate|acetate)\b/gi, '')
+                          .replace(/\s+\d+(\.\d+)?(mg|mcg|g|%)?/gi, '')
+                          .trim() || rawKey;
+
     let cleanLineScreen = "";
     let cleanLinePrint = "";
 
@@ -1176,14 +1191,6 @@ function parseAndCategorizeCloudPrescription(rawText) {
       }
     }
     
-    const matchCode = lineCode ? (lineCode.match(/([A-Za-z]{1,2}\d{5,10}[A-Za-z0-9]{0,3})/) || [null, ''])[1].toUpperCase() : '';
-    const codeLookupKey = matchCode && !NHI_CODE_LOOKUP[matchCode] && matchCode.length >= 10 ? matchCode.substring(0, 10) : matchCode;
-    const standardGeneric = codeLookupKey && NHI_CODE_LOOKUP[codeLookupKey] ? NHI_CODE_LOOKUP[codeLookupKey].generic : '';
-    const rawKey = (standardGeneric || matchedKw || genericName || brandName || blockLower).toLowerCase();
-    const drugKey = rawKey.replace(/\s*[\(\（].*?[\)\）]/g, '')
-                          .replace(/\s+(calcium|besylate|mesylate|hcl|hydrochloride|sodium|potassium|tartrate|fumarate|maleate|succinate|sulfate|nitrate|phosphate|citrate|acetate)\b/gi, '')
-                          .replace(/\s+\d+(\.\d+)?(mg|mcg|g|%)?/gi, '')
-                          .trim() || rawKey;
     const srcInfo = sourceMap[idx] || { source: '', visitType: '' };
 
     tempItems.push({
