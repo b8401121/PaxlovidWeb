@@ -28,6 +28,7 @@ When modifying `parser.js`, be aware of the following text structures:
 - **Data Positioning**: Fields in the clipboard text are separated by Tabs (`\t`).
   - **Source/Visit Type**: Look for a 1-3 digit item number at the start of a line (e.g., `/^(\d{1,3})\t(.+)/`). The 10-digit provider code must NOT be mistaken for an item number.
   - **Drug Code (ATC/健保碼)**: Matched via `codeRe = /^[A-Za-z]{1,3}\d{5,10}.../`. This is the anchor point.
+  - **ATC Classification Stripping**: Cloud prescription records often prepend lengthy ATC category strings (e.g. `作用在腎素-血管緊張素系統上的藥劑(Agents acting on the renin-angiotensin system)`, `Psycholeptics`, `Urologicals`). These MUST be stripped from the generic name candidate or recognized as invalid so the true generic name (e.g. `Valsartan`, `Risperidone`) is extracted or restored via `NHI_CODE_LOOKUP`.
   - **Generic/Brand Names**: Found by looking at the columns immediately left and right of the Drug Code.
   - **Date**: Matched using a Regex `dateRe = /^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}/`. Republic of China (ROC) years (e.g., 115) are automatically converted to Gregorian (e.g., 2026).
 

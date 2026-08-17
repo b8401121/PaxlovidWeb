@@ -112,6 +112,9 @@ function cleanGenericName(rawGeneric) {
   }
   
   const atcPrefixes = [
+    "作用在腎素-血管緊張素系統上的藥劑(agents acting on the renin-angiotensin system)",
+    "作用在腎素-血管緊張素系統上的藥劑（agents acting on the renin-angiotensin system）",
+    "作用在腎素-血管緊張素系統上的藥劑",
     "agents acting on the renin-angiotensin system",
     "agents acting on the renin-angiotensin",
     "renin-angiotensin system",
@@ -852,7 +855,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
       // 若學名缺失，或辨識為亂碼/非標準英文字串/純藥理分類，直接以代碼字典標準化
       const nhiMatch = cols[codeIdx].match(/([A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3})/);
       const codeKey = nhiMatch ? nhiMatch[1].toUpperCase() : cols[codeIdx].toUpperCase();
-      const isGarbled = !genericName || genericName.length < 3 || /^[A-Za-z]{1,2}$/.test(genericName) || /^[0-9\W]+$/.test(genericName) || /EwEExER|BEEEER|TERFERERE|ENE|stage 3|日 數|ramine Hcl|Psycholeptics|Psychoanaleptics|Ophthalmologicals|Antiepileptics|Laxatives|Urologicals|安定劑|興奮劑|眼科|抗癲癇|泌尿|輕瀉/i.test(genericName);
+      const isGarbled = !genericName || genericName.length < 3 || /^[A-Za-z]{1,2}$/.test(genericName) || /^[0-9\W]+$/.test(genericName) || /EwEExER|BEEEER|TERFERERE|ENE|stage 3|日 數|ramine Hcl|Psycholeptics|Psychoanaleptics|Ophthalmologicals|Antiepileptics|Laxatives|Urologicals|renin-angiotensin|作用在腎素|血管緊張素|安定劑|興奮劑|眼科|抗癲癇|泌尿|輕瀉/i.test(genericName);
       if (NHI_CODE_LOOKUP[codeKey] && isGarbled) {
         genericName = NHI_CODE_LOOKUP[codeKey].generic;
         if (!brandName) brandName = NHI_CODE_LOOKUP[codeKey].brand;
