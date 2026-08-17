@@ -954,12 +954,16 @@ function parseAndCategorizeCloudPrescription(rawText) {
       }
 
       // 若學名缺失，或辨識為亂碼/非標準英文字串/純藥理分類，直接以代碼字典標準化
-      const nhiMatch = cols[codeIdx].match(/([A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3})/);
-      const codeKey = nhiMatch ? nhiMatch[1].toUpperCase() : cols[codeIdx].toUpperCase();
-      const isGarbled = !genericName || genericName.length < 3 || /^[A-Za-z]{1,2}$/.test(genericName) || /^[0-9\W]+$/.test(genericName) || /EwEExER|BEEEER|TERFERERE|ENE|stage 3|日 數|ramine Hcl|Psycholeptics|Psychoanaleptics|Ophthalmologicals|Antiepileptics|Laxatives|Urologicals|renin-angiotensin|作用在腎素|血管緊張素|安定劑|興奮劑|眼科|抗癲癇|泌尿|輕瀉/i.test(genericName);
-      if (NHI_CODE_LOOKUP[codeKey] && isGarbled) {
-        genericName = NHI_CODE_LOOKUP[codeKey].generic;
-        if (!brandName) brandName = NHI_CODE_LOOKUP[codeKey].brand;
+      const nhiMatch = cols[codeIdx].match(/([A-Za-z]{1,2}\d{5,9}[A-Za-z0-9]{0,3})/);
+      let codeKey = nhiMatch ? nhiMatch[1].toUpperCase() : cols[codeIdx].toUpperCase();
+      if (!NHI_CODE_LOOKUP[codeKey] && codeKey.length >= 10) {
+        const p10 = codeKey.substring(0, 10);
+        if (NHI_CODE_LOOKUP[p10]) codeKey = p10;
+      }
+      const isGarbled = !genericName || genericName.length < 3 || /^[A-Za-z]{1,2}$/.test(genericName) || /^[0-9\W]+$/.test(genericName) || /EwEExER|BEEEER|TERFERERE|ENE|stage 3|日 數|ramine Hcl|Psycholeptics|Psychoanaleptics|Ophthalmologicals|Antiepileptics|Laxatives|Urologicals|renin-angiotensin|作用在腎素|血管緊張素|安定劑|興奮劑|眼科|抗癲癇|泌尿|輕瀉|^A\+B|calcium/i.test(genericName);
+      if (NHI_CODE_LOOKUP[codeKey] && (isGarbled || !brandName || brandName.length < 3)) {
+        if (isGarbled) genericName = NHI_CODE_LOOKUP[codeKey].generic;
+        if (!brandName || brandName.length < 3) brandName = NHI_CODE_LOOKUP[codeKey].brand;
       }
     } else {
       // 若無標準健保碼，嘗試檢查第 0 或第 1 欄是否為學名/商品名
@@ -1033,7 +1037,11 @@ function parseAndCategorizeCloudPrescription(rawText) {
       matchedKw = matchedSafe;
     } else if (hasCode) {
       const match = cols[codeIdx].match(/([A-Za-z]{1,2}\d{5,10}[A-Za-z0-9]{0,3})/);
-      const codeKey = match ? match[1].toUpperCase() : cols[codeIdx].toUpperCase();
+      let codeKey = match ? match[1].toUpperCase() : cols[codeIdx].toUpperCase();
+      if (!NHI_CODE_LOOKUP[codeKey] && codeKey.length >= 10) {
+        const p10 = codeKey.substring(0, 10);
+        if (NHI_CODE_LOOKUP[p10]) codeKey = p10;
+      }
       if (NHI_CODE_LOOKUP[codeKey]) {
         severity = NHI_CODE_LOOKUP[codeKey].severity;
         matchedKw = (genericName || NHI_CODE_LOOKUP[codeKey].generic).toLowerCase();
@@ -1087,7 +1095,10 @@ function parseAndCategorizeCloudPrescription(rawText) {
       }
     }
     
-    const drugKey = matchedKw || genericName || brandName || blockLower;
+    const matchCode = hasCode ? (cols[codeIdx].match(/([A-Za-z]{1,2}\d{5,10}[A-Za-z0-9]{0,3})/) || [null, ''])[1].toUpperCase() : '';
+    const codeLookupKey = matchCode && !NHI_CODE_LOOKUP[matchCode] && matchCode.length >= 10 ? matchCode.substring(0, 10) : matchCode;
+    const standardGeneric = codeLookupKey && NHI_CODE_LOOKUP[codeLookupKey] ? NHI_CODE_LOOKUP[codeLookupKey].generic : '';
+    const drugKey = (standardGeneric || matchedKw || genericName || brandName || blockLower).toLowerCase();
     const srcInfo = sourceMap[idx] || { source: '', visitType: '' };
 
     tempItems.push({
