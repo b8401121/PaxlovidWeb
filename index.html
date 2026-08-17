@@ -57,16 +57,20 @@
         <h2 style="margin:0 0 12px 0; font-size:1.1rem">💊 Paxlovid 交互作用比對引擎</h2>
         <textarea id="search-input" placeholder="請在此貼上健保雲端藥歷文字，或直接貼上 (Ctrl+V) / 拖入多張藥歷截圖進行 OCR 辨識（⚠️ 註：圖片辨識僅比對藥物交互作用，無法辨識開方醫院名稱）。"></textarea>
         <input type="file" id="ocr-file-input" accept="image/*" multiple style="display:none">
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <button id="btn-paste" class="btn-primary">📋 貼上雲端藥歷</button>
-          <button id="btn-paste-image" class="btn-primary" style="background:linear-gradient(135deg, #0d9488, #4A7C88);">📷 貼上暫存區截圖</button>
-          <button id="btn-ocr-upload" class="btn-primary" style="background:linear-gradient(135deg, #4f46e5, #3b82f6);">📁 選擇圖片檔案</button>
-          <button id="btn-print" class="btn-primary" disabled>🖨️ 列印衛教單</button>
-          <button id="btn-copy-text" class="btn-secondary" disabled>📋 複製文字報告</button>
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto;font-size:0.95rem;">
-            <input type="checkbox" id="cb-print-title" checked> 印出診所名稱
-          </label>
-          <button id="btn-clear" class="btn-primary" style="background:linear-gradient(135deg, #2d3748, #111827); color:#ffffff; border:1px solid #374151; box-shadow:0 4px 12px rgba(0,0,0,0.25);">🧹 清除重置</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <button id="btn-paste" class="btn-primary">📋 貼上雲端藥歷</button>
+            <button id="btn-paste-image" class="btn-primary" style="background:linear-gradient(135deg, #0d9488, #4A7C88);">📷 貼上暫存區截圖</button>
+            <button id="btn-ocr-upload" class="btn-primary" style="background:linear-gradient(135deg, #4f46e5, #3b82f6);">📁 選擇圖片檔案</button>
+            <button id="btn-print" class="btn-primary" disabled>🖨️ 列印衛教單</button>
+            <button id="btn-copy-text" class="btn-secondary" disabled>📋 複製文字報告</button>
+          </div>
+          <div style="display:flex; gap:12px; align-items:center; flex-shrink:0; margin-left:auto;">
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:0.92rem;white-space:nowrap;">
+              <input type="checkbox" id="cb-print-title" checked> 印出診所名稱
+            </label>
+            <button id="btn-clear" class="btn-primary" style="background:linear-gradient(135deg, #2d3748, #111827); color:#ffffff; border:1px solid #374151; box-shadow:0 4px 12px rgba(0,0,0,0.25);">🧹 清除重置</button>
+          </div>
         </div>
         <div id="ocr-progress-container" class="hidden" style="margin-top:15px; padding:12px; border:1px dashed var(--border); border-radius:8px; background:var(--bg-main); display:flex; align-items:center; gap:15px;">
           <img id="ocr-preview-img" style="width:60px; height:60px; object-fit:cover; border-radius:6px; border:1px solid var(--border);" alt="OCR Preview">
@@ -168,8 +172,8 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="data.js?v=7.8-dev"></script>
-  <script src="parser.js?v=7.8-dev"></script>
-  <script src="main.js?v=7.8-dev"></script>
+  <script src="data.js?v=7.9-dev"></script>
+  <script src="parser.js?v=7.9-dev"></script>
+  <script src="main.js?v=7.9-dev"></script>
 </body>
 </html>

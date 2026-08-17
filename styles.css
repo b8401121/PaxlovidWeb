@@ -276,14 +276,15 @@ h1 {
   background: linear-gradient(135deg, var(--primary), var(--accent, #5B728A));
   color: white;
   border: none;
-  padding: 10px 20px;
+  padding: 8px 16px;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  white-space: nowrap;
   box-shadow: 0 4px 12px rgba(74, 124, 136, 0.25);
   transition: all 0.2s;
 }
@@ -305,14 +306,15 @@ h1 {
   background: var(--bg-card);
   color: var(--text-main);
   border: 1px solid var(--border);
-  padding: 10px 20px;
+  padding: 8px 16px;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  white-space: nowrap;
   transition: all 0.2s;
 }
 
