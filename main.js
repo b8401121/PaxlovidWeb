@@ -529,9 +529,9 @@ function initApp() {
     renderAllDrugsTable(currentCat.allItems || []);
     renderManualTable(searchInteractions(text));
 
-    const hasWarnings = currentCat.contraindicated.length + currentCat.interactive.length > 0;
-    btnPrint.disabled = !hasWarnings;
-    btnCopyText.disabled = !hasWarnings;
+    // 只要有藥歷分析結果，即使全數為安全無交互作用，仍允許列印衛教單（提供服藥須知與重症警訊）
+    btnPrint.disabled = false;
+    btnCopyText.disabled = false;
 
     // 確保預設切換至第一頁籤「Paxlovid 交互作用評估」
     const firstTabBtn = document.querySelector('.tab-btn[data-target="tab-auto"]');
@@ -677,10 +677,7 @@ function initApp() {
   }
 
   function updatePrintBtn() {
-    if (!currentCat) { btnPrint.disabled = true; return; }
-    const count = (currentCat.contraindicated || []).filter(x => x.selectedForPrint).length
-                + (currentCat.interactive     || []).filter(x => x.selectedForPrint).length;
-    btnPrint.disabled = count === 0;
+    btnPrint.disabled = !currentCat;
   }
 
   // ─── Manual table ───────────────────────────────────────────────────────────
