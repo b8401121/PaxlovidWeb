@@ -4186,7 +4186,8 @@ const safe = [
   "carbimazole",
   "etanercept",
   "leflunomide",
-  "ozanimod"
+  "ozanimod",
+  "piracetam"
 ];
 const safe2 = [
   "biktarvy",

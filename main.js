@@ -335,9 +335,12 @@ function initApp() {
           : '分析圖像文字...';
 
         try {
-          const result = await ocrWorker.recognize(file);
+          const processedImg = await preprocessImageForOCR(file);
+          const result = await ocrWorker.recognize(processedImg);
           const rawText = result.data ? result.data.text : '';
+          console.log('[OCR RAW]', JSON.stringify(rawText));
           const preprocessedText = preprocessOcrText(rawText);
+          console.log('[OCR PREPROCESSED]', JSON.stringify(preprocessedText));
           if (preprocessedText && preprocessedText.trim()) {
             results.push(preprocessedText.trim());
           }
@@ -345,7 +348,8 @@ function initApp() {
           console.warn(`Error recognizing image ${i+1}:`, itemErr);
           // 若單張發生 worker 異常，使用 Tesseract.recognize 獨立呼叫嘗試挽救
           try {
-            const fallbackRes = await Tesseract.recognize(file, 'eng+chi_tra');
+            const processedImg = await preprocessImageForOCR(file);
+            const fallbackRes = await Tesseract.recognize(processedImg, 'eng+chi_tra');
             const rawText = fallbackRes.data ? fallbackRes.data.text : '';
             const preprocessedText = preprocessOcrText(rawText);
             if (preprocessedText && preprocessedText.trim()) {

@@ -100,31 +100,38 @@ function preprocessOcrText(rawText) {
 
     // ── OCR 字元修正：替換常見數字/字母混淆 ──────────────────────────────
     // 0. 清除健保碼中間夾雜的表格斜線/豎線（例如 BC233/4100 或 BC233|4100 -> BC23374100 或 BC23314100）
-    line = line.replace(/\b([A-Za-z]{1,3}\d{2,4})[\/\\|](\d{3,5})\b/g, (m, p1, p2) => {
+    line = line.replace(/([A-Za-z]{1,2}\d{2,4})[\/\\|](\d{3,5})/g, (m, p1, p2) => {
       // 在台灣健保碼中，斜線最常是 7 或 1 被誤判
       return p1 + '7' + p2;
     });
 
-    // 修復首字元被誤讀：8C→BC, 0D→OD, 1BC→IBC（僅在明確為健保碼前置字母時）
-    line = line.replace(/(?<![A-Za-z])8([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'B$1');
-    line = line.replace(/(?<![A-Za-z])0([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'O$1');
-    line = line.replace(/(?<![A-Za-z])1([A-Za-z][A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})\b/g, 'I$1');
+    // 修復首字元被誤讀：8C→BC, 0D→OD, 1BC→IBC
+    line = line.replace(/([^A-Za-z]|^)8([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})/g, '$1B$2');
+    line = line.replace(/([^A-Za-z]|^)0([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})/g, '$1O$2');
+    line = line.replace(/([^A-Za-z]|^)1([A-Za-z]{2}\d{5,9}[A-Za-z0-9]{0,3})/g, '$1I$2');
 
     // ── 僅修復確定是健保碼但夾雜了明顯 OCR 字母錯誤的 token ────────────────
-    line = line.replace(/\b([A-Za-z]{1,3})((?=[0-9A-Za-z]{6,10}\b)[0-9A-Za-z]+)\b/g, (match, prefix, rest) => {
+    line = line.replace(/([A-Za-z]{1,2})((?=[0-9A-Za-z]{6,10})[0-9A-Za-z]+)/g, (match, prefix, rest) => {
       const digitCount = (rest.match(/\d/g) || []).length;
       const letterCount = (rest.match(/[A-Za-z]/g) || []).length;
-      if (digitCount >= 5 && letterCount >= 1 && letterCount <= 3 && (prefix.length + rest.length) <= 12) {
-        const fixedRest = rest.replace(/[sS]/g, c => /\d/.test(rest[rest.indexOf(c)-1]||'') || /\d/.test(rest[rest.indexOf(c)+1]||'') ? '5' : c)
-                              .replace(/[oO]/g, c => /\d/.test(rest[rest.indexOf(c)-1]||'') || /\d/.test(rest[rest.indexOf(c)+1]||'') ? '0' : c);
+      if (digitCount >= 5 && letterCount >= 1 && letterCount <= 4 && (prefix.length + rest.length) <= 12) {
+        let fixedRest = "";
+        for (let i = 0; i < rest.length; i++) {
+          let c = rest[i];
+          if (/[oO]/.test(c)) fixedRest += '0';
+          else if (/[lI]/.test(c)) fixedRest += '1';
+          else if (/[sS]/.test(c)) fixedRest += '5';
+          else if (/[zZ]/.test(c)) fixedRest += '2';
+          else fixedRest += c;
+        }
         return prefix.toUpperCase() + fixedRest;
       }
       return match;
     });
 
-    const codeMatch = line.match(/\b([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})\b/);
+    const codeMatch = line.match(/\b([A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3})\b/);
     
-    if (codeMatch && !line.includes('\t')) {
+    if (codeMatch && codeMatch[1].length >= 9 && codeMatch[1].length <= 11 && !line.includes('\t')) {
       const code = codeMatch[1];
       const dateMatch = line.match(/(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/);
       const date = dateMatch ? dateMatch[1] : "";
@@ -354,7 +361,7 @@ function searchInteractions(text) {
     lines.push(text.trim());
   }
 
-  const codeRe = /^[A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3}(?:（[^）]+）|\([^)]+\))?$/;
+  const codeRe = /^[A-Za-z]{1,3}\d{6,10}[A-Za-z0-9]{0,3}(?:（[^）]+）|\([^)]+\))?$/;
   const dateRe = /^\d{2,4}[/\.-]\d{1,2}[/\.-]\d{1,2}/;
   const re1 = /^(\S+)\s+(.*?\(.*?\))\s+(\S+)\s+(\S+)\s+(\S+)\s+(.*?。)\s*(.*)$/;
   const re2 = /^(\S+)\s+(.*?\(.*?\))\s+(\S+)\s+(\S+)\s+(\S+)\s+(.*)$/;
@@ -644,8 +651,12 @@ function parseAndCategorizeCloudPrescription(rawText) {
     .replace(/\s*藥\s*品\s*名\s*稱/g, '')
     .replace(/\r/g, '');
 
-  // Apply HTA brand name replacements (商品名→學名，讓 OCR 讀到商品名也能比對）
+  // Apply HTA brand name replacements & ATC translations
   txt = txt
+    .replace(/\bPsycholeptics\b/gi, '精神神經安定劑 (Psycholeptics)')
+    .replace(/\bPsychoanaleptics\b/gi, '精神興奮劑 (Psychoanaleptics)')
+    .replace(/\bOphthalmologicals\b/gi, '眼科用藥 (Ophthalmologicals)')
+    .replace(/\bAntiepileptics\b/gi, '抗癲癇藥 (Antiepileptics)')
     .replace(/\bdiovan\b/gi, 'valsartan')
     .replace(/\bconcor\b/gi, 'bisoprolol')
     .replace(/\beltroxin\b/gi, 'levothyroxine')
@@ -691,7 +702,15 @@ function parseAndCategorizeCloudPrescription(rawText) {
 
   // Split by line breaks (if tab-delimited lines or OCR lines)
   const blocks = txt.split(/[\r\n]+/).map(b => b.trim()).filter(b => b.length > 0);
-  const codeRe = /[A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3}/;
+  
+  // 台灣健保藥品代碼為 10 碼（1-2 個英文字母 + 7-9 位數字/英數，總長度為 9-11 碼）
+  // 嚴格排除 ICD-10 疾病診斷碼（如 F03911, F0392, L239, N401, I10 等短代碼）
+  const isNhiDrugCode = (str) => {
+    if (!str) return false;
+    const s = str.trim();
+    return /^[A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3}$/.test(s) && s.length >= 9 && s.length <= 11;
+  };
+  const codeRe = /^[A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3}$/;
   const dateRe = /^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}/;
 
   // ── 來源預掃描 ─────────────────────────────────────────────────────────────
@@ -738,6 +757,42 @@ function parseAndCategorizeCloudPrescription(rawText) {
 
   const tempItems = [];
 
+  // ── 健保代碼智慧補全字典（若 OCR 學名辨識亂碼或缺失時直接校正）───────────
+  const NHI_CODE_LOOKUP = {
+    "BC23374100": { generic: "Valsartan", brand: "DIOVAN 160MG", severity: "interactive" },
+    "AC60574100": { generic: "Tamsulosin Hcl", brand: "Tamlosin 0.4mg", severity: "interactive" },
+    "BC25413100": { generic: "Tamsulosin Hcl", brand: "Harnalidge OCAS 0.4mg", severity: "interactive" },
+    "BC22768100": { generic: "Risperidone", brand: "RISPERDAL Film Coated TABLET 2MG", severity: "interactive" },
+    "AC47486197": { generic: "Piracetam", brand: "HAMGO GRANULES 1200MG", severity: "safe" },
+    "AC373441G0": { generic: "Aspirin", brand: "BOKEY 100MG", severity: "safe" },
+    "AC37344160": { generic: "Aspirin", brand: "BOKEY 100MG", severity: "safe" },
+    "A043488100": { generic: "Sennoside A+B(Calcium)", brand: "SENNAPUR TABLETS", severity: "safe" },
+    "AC36350500": { generic: "Bisacodyl", brand: "BISADYL SUPPOSITORIES 10MG", severity: "safe" },
+    "BC240391G0": { generic: "Bisoprolol Fumarate", brand: "CONCOR 1.25", severity: "safe" },
+    "BC24039160": { generic: "Bisoprolol Fumarate", brand: "CONCOR 1.25", severity: "safe" },
+    "BC25533100": { generic: "Levothyroxine Sodium", brand: "ELTROXIN 50mcg", severity: "safe" },
+    "NC017521G0": { generic: "Imipramine Hcl", brand: "FRONIL", severity: "safe" },
+    "NC01752160": { generic: "Imipramine Hcl", brand: "FRONIL", severity: "safe" },
+    "A023521100": { generic: "Magnesium Oxide", brand: "MAGNESIUM OXIDE", severity: "safe" },
+    "A037697100": { generic: "Sennoside A+B", brand: "THROUGH", severity: "safe" },
+    "AC41577100": { generic: "Potassium Citrate", brand: "DESTONE 540MG", severity: "safe" },
+    "AC427541G0": { generic: "Benzbromarone", brand: "EURICON 50MG", severity: "safe" },
+    "AC42754160": { generic: "Benzbromarone", brand: "EURICON 50MG", severity: "safe" },
+    "AC62078121": { generic: "Calcium Polystyrene Sulfonate", brand: "KALIMATE POWDER", severity: "safe" },
+    "B020735429": { generic: "Hypromellose", brand: "ARTELAC EYE DROPS", severity: "safe" },
+    "B020735420": { generic: "Hypromellose", brand: "ARTELAC EYE DROPS", severity: "safe" },
+    "BC21628421": { generic: "Pirenoxine", brand: "KARY UNI", severity: "safe" },
+    "AB45993100": { generic: "Acetylcysteine", brand: "ACTEIN 600MG", severity: "safe" },
+    "AB15993100": { generic: "Acetylcysteine", brand: "ACTEIN 600MG", severity: "safe" },
+    "BC230161G0": { generic: "Fexofenadine Hydrochloride", brand: "ALLEGRA 60MG", severity: "safe" },
+    "BC23016160": { generic: "Fexofenadine Hydrochloride", brand: "ALLEGRA 60MG", severity: "safe" },
+    "BC26301443": { generic: "Indacaterol Maleate ; Glycopyrronium Bromide", brand: "Ultibro Breezhaler", severity: "safe" },
+    "A040833157": { generic: "Methylephedrine ; Chlorpheniramine ; Guaiacol", brand: "SECORINE SYRUP", severity: "safe" },
+    "AC60851457": { generic: "Azelastine ; Fluticasone", brand: "Dufanas Nasal Spray", severity: "safe" },
+    "A027040100": { generic: "Dexchlorpheniramine Maleate", brand: "DEX-CTM 2MG", severity: "safe" },
+    "AC19616329": { generic: "Betamethasone (Dipropionate)", brand: "BETAMETHASONE OINT", severity: "safe" }
+  };
+
   for (let idx = 0; idx < blocks.length; idx++) {
     const block = blocks[idx];
     const blockLower = block.toLowerCase();
@@ -746,7 +801,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
     let hasCode = false;
     let codeIdx = -1;
     for (let i = 0; i < cols.length; i++) {
-      if (codeRe.test(cols[i])) {
+      if (isNhiDrugCode(cols[i])) {
         hasCode = true;
         codeIdx = i;
         break;
@@ -770,45 +825,23 @@ function parseAndCategorizeCloudPrescription(rawText) {
           break;
         }
       }
-    }
 
-    // ── 健保代碼智慧補全字典（若 OCR 學名辨識亂碼或缺失時直接校正）─────────────
-    const NHI_CODE_LOOKUP = {
-      "BC23374100": { generic: "Valsartan", brand: "DIOVAN 160MG", severity: "interactive" },
-      "AC60574100": { generic: "Tamsulosin Hcl", brand: "Tamlosin 0.4mg", severity: "interactive" },
-      "BC240391G0": { generic: "Bisoprolol Fumarate", brand: "CONCOR 1.25", severity: "safe" },
-      "BC24039160": { generic: "Bisoprolol Fumarate", brand: "CONCOR 1.25", severity: "safe" },
-      "BC25533100": { generic: "Levothyroxine Sodium", brand: "ELTROXIN 50mcg", severity: "safe" },
-      "NC017521G0": { generic: "Imipramine Hcl", brand: "FRONIL", severity: "safe" },
-      "NC01752160": { generic: "Imipramine Hcl", brand: "FRONIL", severity: "safe" },
-      "A023521100": { generic: "Magnesium Oxide", brand: "MAGNESIUM OXIDE", severity: "safe" },
-      "A037697100": { generic: "Sennoside A+B", brand: "THROUGH", severity: "safe" },
-      "AC41577100": { generic: "Potassium Citrate", brand: "DESTONE 540MG", severity: "safe" },
-      "AC427541G0": { generic: "Benzbromarone", brand: "EURICON 50MG", severity: "safe" },
-      "AC42754160": { generic: "Benzbromarone", brand: "EURICON 50MG", severity: "safe" },
-      "AC62078121": { generic: "Calcium Polystyrene Sulfonate", brand: "KALIMATE POWDER", severity: "safe" },
-      "B020735429": { generic: "Hypromellose", brand: "ARTELAC EYE DROPS", severity: "safe" },
-      "B020735420": { generic: "Hypromellose", brand: "ARTELAC EYE DROPS", severity: "safe" },
-      "BC21628421": { generic: "Pirenoxine", brand: "KARY UNI", severity: "safe" },
-      "AB45993100": { generic: "Acetylcysteine", brand: "ACTEIN 600MG", severity: "safe" },
-      "AB15993100": { generic: "Acetylcysteine", brand: "ACTEIN 600MG", severity: "safe" },
-      "BC230161G0": { generic: "Fexofenadine Hydrochloride", brand: "ALLEGRA 60MG", severity: "safe" },
-      "BC23016160": { generic: "Fexofenadine Hydrochloride", brand: "ALLEGRA 60MG", severity: "safe" },
-      "BC26301443": { generic: "Indacaterol Maleate ; Glycopyrronium Bromide", brand: "Ultibro Breezhaler", severity: "safe" },
-      "A040833157": { generic: "Methylephedrine ; Chlorpheniramine ; Guaiacol", brand: "SECORINE SYRUP", severity: "safe" },
-      "AC60851457": { generic: "Azelastine ; Fluticasone", brand: "Dufanas Nasal Spray", severity: "safe" },
-      "A027040100": { generic: "Dexchlorpheniramine Maleate", brand: "DEX-CTM 2MG", severity: "safe" },
-      "AC19616329": { generic: "Betamethasone (Dipropionate)", brand: "BETAMETHASONE OINT", severity: "safe" }
-    };
-
-    if (hasCode) {
-      const match = cols[codeIdx].match(/([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})/);
-      const codeKey = match ? match[1].toUpperCase() : cols[codeIdx].toUpperCase();
-      // 若學名缺失，或辨識為亂碼/非標準英文字串，直接以代碼字典標準化
-      const isGarbled = !genericName || genericName.length < 3 || /^[A-Za-z]{1,2}$/.test(genericName) || /^[0-9\W]+$/.test(genericName) || /EwEExER|BEEEER|TERFERERE|ENE|stage 3|日 數|ramine Hcl/i.test(genericName);
-      if (NHI_CODE_LOOKUP[codeKey] && (isGarbled || !genericName)) {
+      // 若學名缺失，或辨識為亂碼/非標準英文字串/純藥理分類，直接以代碼字典標準化
+      const nhiMatch = cols[codeIdx].match(/([A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3})/);
+      const codeKey = nhiMatch ? nhiMatch[1].toUpperCase() : cols[codeIdx].toUpperCase();
+      const isGarbled = !genericName || genericName.length < 3 || /^[A-Za-z]{1,2}$/.test(genericName) || /^[0-9\W]+$/.test(genericName) || /EwEExER|BEEEER|TERFERERE|ENE|stage 3|日 數|ramine Hcl|Psycholeptics|Psychoanaleptics|Ophthalmologicals|Antiepileptics|Laxatives|Urologicals|安定劑|興奮劑|眼科|抗癲癇|泌尿|輕瀉/i.test(genericName);
+      if (NHI_CODE_LOOKUP[codeKey] && isGarbled) {
         genericName = NHI_CODE_LOOKUP[codeKey].generic;
         if (!brandName) brandName = NHI_CODE_LOOKUP[codeKey].brand;
+      }
+    }
+
+    if (hasCode) {
+      const match = cols[codeIdx].match(/([A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3})/);
+      const codeKey = match ? match[1].toUpperCase() : cols[codeIdx].toUpperCase();
+      if (NHI_CODE_LOOKUP[codeKey]) {
+        severity = NHI_CODE_LOOKUP[codeKey].severity;
+        matchedKw = (NHI_CODE_LOOKUP[codeKey].generic || genericName).toLowerCase();
       }
     }
     let visitDate = "";
@@ -873,7 +906,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
       severity = "safe";
       matchedKw = matchedSafe;
     } else if (hasCode) {
-      const match = cols[codeIdx].match(/([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})/);
+      const match = cols[codeIdx].match(/([A-Za-z]{1,2}\d{5,10}[A-Za-z0-9]{0,3})/);
       const codeKey = match ? match[1].toUpperCase() : cols[codeIdx].toUpperCase();
       if (NHI_CODE_LOOKUP[codeKey]) {
         severity = NHI_CODE_LOOKUP[codeKey].severity;
