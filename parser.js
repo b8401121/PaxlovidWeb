@@ -1247,16 +1247,12 @@ function parseAndCategorizeCloudPrescription(rawText) {
       }
     }
 
-    if (uniqueDateGroup.length > 1) {
-      uniqueDateGroup.forEach((item, index) => {
-        item.isDuplicate = (index > 0);
-        item.selectedForPrint = (index === 0);
-        validItems.push(item);
-      });
-    } else if (uniqueDateGroup.length === 1) {
-      uniqueDateGroup[0].isDuplicate = false;
-      uniqueDateGroup[0].selectedForPrint = true;
-      validItems.push(uniqueDateGroup[0]);
+    // 臨床用藥評估原則：同一藥物僅保留「最新就醫日期」之單一有效處方，自動排除過往歷史重複紀錄
+    if (uniqueDateGroup.length > 0) {
+      const latestItem = uniqueDateGroup[0];
+      latestItem.isDuplicate = false;
+      latestItem.selectedForPrint = true;
+      validItems.push(latestItem);
     }
   }
 
