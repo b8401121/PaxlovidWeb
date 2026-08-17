@@ -604,9 +604,13 @@ function initApp() {
         card.className = 'drug-card';
 
         const dateStr    = item.visitDate    ? item.visitDate            : '';
-        const genericStr = item.genericName  ? item.genericName           : '';
-        const brandStr   = item.brandName    ? item.brandName             : '';
-        const headline   = genericStr || brandStr || item.originalLine    || '';
+        const codeMatch  = item.originalLine ? item.originalLine.match(/\b([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})\b/) : null;
+        const codeDisplay = item.hasCode && codeMatch ? codeMatch[1].toUpperCase() : '';
+        const dictEntry  = (codeDisplay && typeof NHI_CODE_LOOKUP !== 'undefined') ? (NHI_CODE_LOOKUP[codeDisplay] || (codeDisplay.length >= 10 ? NHI_CODE_LOOKUP[codeDisplay.substring(0, 10)] : null)) : null;
+
+        const genericStr = (dictEntry && dictEntry.generic) || item.genericName || '';
+        const brandStr   = (dictEntry && dictEntry.brand)   || item.brandName   || '';
+        const headline   = genericStr || brandStr || item.originalLine || '未知名稱';
         const { tag, label } = getSeverityInfo(item.severity);
 
         // 來源標籤
@@ -620,7 +624,7 @@ function initApp() {
         let suggText = '';
         if (item.severity === 'contraindicated' || item.severity === 'interactive') {
           let raw = typeof getDictSuggestion === 'function' 
-            ? getDictSuggestion(item.drugKey || item.genericName || item.brandName || item.originalLine)
+            ? getDictSuggestion(item.drugKey || genericStr || brandStr || item.originalLine)
             : ((DICT && DICT[item.drugKey]) || '');
           if (raw.startsWith('{') && raw.includes('}')) raw = raw.substring(raw.indexOf('}') + 1).trim();
           if (raw) suggText = `<div class="drug-sugg">📋 ${raw}</div>`;
@@ -644,7 +648,8 @@ function initApp() {
               ${dateDisplay ? `<span class="date-badge">📅 ${dateDisplay}</span>` : ''}
             </div>
             <div class="drug-name">${headline}</div>
-            ${genericStr && brandStr ? `<div class="drug-date">${genericStr} / ${brandStr}</div>` : ''}
+            ${brandStr ? `<div style="font-size:0.9rem; color:var(--text-main); font-weight:600; margin-top:2px;">🏷️ 商品名：<span style="color:var(--primary);">${brandStr}</span>${codeDisplay ? ` <span style="font-size:0.8rem; color:var(--text-secondary); font-weight:normal;">(${codeDisplay})</span>` : ''}</div>` : ''}
+            ${genericStr && genericStr !== headline ? `<div style="font-size:0.85rem; color:var(--text-secondary); margin-top:2px;">🧪 學名：${genericStr}</div>` : ''}
             ${item.isDuplicate ? `<div class="drug-date" style="color:#f59e0b">⚠️ 重複品項（已自動選取最新一筆）</div>` : ''}
             ${suggText}
           </div>
