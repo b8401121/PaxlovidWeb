@@ -818,7 +818,10 @@ const SAFE_KEYWORDS = [
   "ibuprofen",
   "mefenamic acid",
   "potassium",
-  "agomelatine"
+  "agomelatine",
+  "famotidine",
+  "sulfamethoxazole",
+  "carteolol"
 ];
 
 function getDictSuggestion(key) {
