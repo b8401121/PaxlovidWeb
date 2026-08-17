@@ -933,17 +933,20 @@ function parseAndCategorizeCloudPrescription(rawText) {
 
     let hasCode = false;
     let codeIdx = -1;
+    let lineCode = "";
+
     for (let i = 0; i < cols.length; i++) {
       if (isNhiDrugCode(cols[i])) {
         hasCode = true;
         codeIdx = i;
+        lineCode = cols[i];
         break;
       }
     }
 
     let genericName = "";
     let brandName = "";
-    if (hasCode) {
+    if (hasCode && codeIdx !== -1) {
       // Look left for first non-empty column (generic name)
       for (let i = codeIdx - 1; i >= 0; i--) {
         if (cols[i]) {
@@ -960,8 +963,8 @@ function parseAndCategorizeCloudPrescription(rawText) {
       }
 
       // 若學名缺失，或辨識為亂碼/非標準英文字串/純藥理分類，直接以代碼字典標準化
-      const nhiMatch = cols[codeIdx].match(/([A-Za-z]{1,2}\d{5,9}[A-Za-z0-9]{0,3})/);
-      let codeKey = nhiMatch ? nhiMatch[1].toUpperCase() : cols[codeIdx].toUpperCase();
+      const nhiMatch = lineCode.match(/([A-Za-z]{1,2}\d{5,9}[A-Za-z0-9]{0,3})/);
+      let codeKey = nhiMatch ? nhiMatch[1].toUpperCase() : lineCode.toUpperCase();
       if (!NHI_CODE_LOOKUP[codeKey] && codeKey.length >= 10) {
         const p10 = codeKey.substring(0, 10);
         if (NHI_CODE_LOOKUP[p10]) codeKey = p10;
@@ -975,7 +978,8 @@ function parseAndCategorizeCloudPrescription(rawText) {
       // 若無欄位被判定為健保碼，嘗試由整行正則擷取健保碼
       const codeMatch = block.match(/\b([A-Za-z]{1,2}\d{5,9}[A-Za-z0-9]{0,3})\b/);
       if (codeMatch) {
-        let codeKey = codeMatch[1].toUpperCase();
+        lineCode = codeMatch[1];
+        let codeKey = lineCode.toUpperCase();
         if (!NHI_CODE_LOOKUP[codeKey] && codeKey.length >= 10) {
           const p10 = codeKey.substring(0, 10);
           if (NHI_CODE_LOOKUP[p10]) codeKey = p10;
@@ -1055,9 +1059,9 @@ function parseAndCategorizeCloudPrescription(rawText) {
     } else if (matchedSafe) {
       severity = "safe";
       matchedKw = matchedSafe;
-    } else if (hasCode) {
-      const match = cols[codeIdx].match(/([A-Za-z]{1,2}\d{5,10}[A-Za-z0-9]{0,3})/);
-      let codeKey = match ? match[1].toUpperCase() : cols[codeIdx].toUpperCase();
+    } else if (hasCode && lineCode) {
+      const match = lineCode.match(/([A-Za-z]{1,2}\d{5,10}[A-Za-z0-9]{0,3})/);
+      let codeKey = match ? match[1].toUpperCase() : lineCode.toUpperCase();
       if (!NHI_CODE_LOOKUP[codeKey] && codeKey.length >= 10) {
         const p10 = codeKey.substring(0, 10);
         if (NHI_CODE_LOOKUP[p10]) codeKey = p10;
@@ -1106,7 +1110,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
       if (hasCode) {
         const sourceVal = cols[0] ? cols[0].toLowerCase() : "";
         const genericVal = genericName ? genericName.toLowerCase() : "";
-        const codeVal = cols[codeIdx] ? cols[codeIdx].toLowerCase() : "";
+        const codeVal = lineCode ? lineCode.toLowerCase() : "";
         const brandVal = brandName ? brandName.toLowerCase() : "";
         cleanLinePrint = `⛨${sourceVal}\t${genericVal}\t${codeVal}\t${brandVal}${printSugg}`;
       } else {
@@ -1118,7 +1122,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
       if (hasCode) {
         const sourceVal = cols[0] ? cols[0].toLowerCase() : "";
         const genericVal = genericName ? genericName.toLowerCase() : "";
-        const codeVal = cols[codeIdx] ? cols[codeIdx].toLowerCase() : "";
+        const codeVal = lineCode ? lineCode.toLowerCase() : "";
         const brandVal = brandName ? brandName.toLowerCase() : "";
         cleanLinePrint = `⛨${sourceVal}\t${genericVal}\t${codeVal}\t${brandVal}`;
       } else {
@@ -1126,7 +1130,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
       }
     }
     
-    const matchCode = hasCode ? (cols[codeIdx].match(/([A-Za-z]{1,2}\d{5,10}[A-Za-z0-9]{0,3})/) || [null, ''])[1].toUpperCase() : '';
+    const matchCode = lineCode ? (lineCode.match(/([A-Za-z]{1,2}\d{5,10}[A-Za-z0-9]{0,3})/) || [null, ''])[1].toUpperCase() : '';
     const codeLookupKey = matchCode && !NHI_CODE_LOOKUP[matchCode] && matchCode.length >= 10 ? matchCode.substring(0, 10) : matchCode;
     const standardGeneric = codeLookupKey && NHI_CODE_LOOKUP[codeLookupKey] ? NHI_CODE_LOOKUP[codeLookupKey].generic : '';
     const drugKey = (standardGeneric || matchedKw || genericName || brandName || blockLower).toLowerCase();
