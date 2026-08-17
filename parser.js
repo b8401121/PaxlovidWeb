@@ -1173,6 +1173,9 @@ function parseAndCategorizeCloudPrescription(rawText) {
       }
     }
     
+    const matchCode = lineCode ? (lineCode.match(/([A-Za-z]{1,2}\d{5,10}[A-Za-z0-9]{0,3})/) || [null, ''])[1].toUpperCase() : '';
+    const codeLookupKey = matchCode && !NHI_CODE_LOOKUP[matchCode] && matchCode.length >= 10 ? matchCode.substring(0, 10) : matchCode;
+    const standardGeneric = codeLookupKey && NHI_CODE_LOOKUP[codeLookupKey] ? NHI_CODE_LOOKUP[codeLookupKey].generic : '';
     const rawKey = (standardGeneric || matchedKw || genericName || brandName || blockLower).toLowerCase();
     const drugKey = rawKey.replace(/\s*[\(\（].*?[\)\）]/g, '')
                           .replace(/\s+(calcium|besylate|mesylate|hcl|hydrochloride|sodium|potassium|tartrate|fumarate|maleate|succinate|sulfate|nitrate|phosphate|citrate|acetate)\b/gi, '')
