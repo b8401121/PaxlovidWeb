@@ -20,7 +20,8 @@ This skill provides guidelines, architectural principles, and runbooks for devel
   - `index.html`: Main application interface, login overlay, and tab containers.
   - `styles.css`: CSS variables, themes (Clinical Light, Eye-care Warm, Clinical Dark), responsive layouts, and `@media print` rules for A4 single-page education sheets.
   - `main.js`: UI logic, event bindings, Tesseract OCR orchestration with dual-mode fallback, and iframe-based print preview generation.
-  - `parser.js`: Cloud prescription parsing, OCR preprocessing, NHI code dictionary lookup (`NHI_CODE_LOOKUP`), drug normalization (`normalizeDrugKey`), and clinical suggestion matching (`getDictSuggestion`).
+  - `nhi_lookup.js`: Official Taiwan NHI Drug Database (115年08月最新版，包含全台 45,175 筆單方與複方藥品代碼、成分學名與商品名).
+  - `parser.js`: Cloud prescription parsing, OCR preprocessing, NHI code dictionary lookup (`getNhiCodeEntry` & `NHI_CODE_LOOKUP`), drug normalization (`normalizeDrugKey`), and clinical suggestion matching (`getDictSuggestion`).
   - `data.js`: Clinical database with hardcoded keyword arrays (`proh`, `dont`, `pote`, `safe`, `safe2`, `SAFE_KEYWORDS`) and the recommendation dictionary (`DICT`).
 
 ---
@@ -41,8 +42,9 @@ This skill provides guidelines, architectural principles, and runbooks for devel
 - **Network Resilience Fallback**: Tesseract worker initializes with `eng+chi_tra`. If the heavy Traditional Chinese traineddata (~15MB) fails or times out on hospital intranet/firewalls, it automatically falls back to lightweight `eng` (1MB, fast & 100% sufficient for English drug names, codes, and dates).
 - **Per-Batch Reset**: Each OCR upload cleans `searchInput.value` to avoid accumulating stale test data.
 
-### C. Drug Canonicalization & Grouping (`normalizeDrugKey`)
-- **NHI Code Dictionary (`NHI_CODE_LOOKUP`)**: Standardizes 10-digit NHI codes to official generic names, brand names, and default severities.
+### C. Drug Canonicalization & Official NHI Database (`getNhiCodeEntry` & `normalizeDrugKey`)
+- **Taiwan Official NHI Database (`window.NHI_DB` in `nhi_lookup.js`)**: Contains 45,175 active NHI codes, standardizing 10-digit codes to official generic names, combination ingredients, and brand names.
+- **Combo Drug Multi-Ingredient Parsing**: For combination drugs (e.g. `Valsartan ; Amlodipine Besylate`), both active ingredients are automatically evaluated against Paxlovid risk lists.
 - **Salt & Suffix Normalization**: Strips salts (`calcium`, `besylate`, `mesylate`, `hcl`, `tartrate`, `fumarate`, etc.) and dosage strings when generating `drugKey`.
 - **Deduplication**: Groups multiple prescriptions/refills of the same drug (e.g. chronic refill prescriptions 1/3, 2/3, 3/3 on the same date) and retains the latest, most complete item while discarding dateless OCR fragments.
 
