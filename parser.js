@@ -472,7 +472,12 @@ function preprocessOcrText(rawText) {
       if (typeof NHI_CODE_LOOKUP !== 'undefined' && NHI_CODE_LOOKUP[code]) {
         const entry = NHI_CODE_LOOKUP[code];
         generic = entry.generic || generic;
-        if (!brand || brand.length < 3 || /cl\s*P\s*9|ap\s*ss/i.test(brand)) brand = entry.brand || brand;
+        brand = entry.brand || "";
+      } else {
+        // 若非代碼字典確認之商品名，且帶有 OCR 殘缺雜訊（如純劑量、怪符號、短字母碎片），直接清空避免怪字
+        if (!brand || brand.length < 3 || /^(\.?\d+[\/\.\d]*(mg|mcg|g|%)?(\s*(hs|bid|tid|qd|qn|po|pc|tab|cap)\b)*[\s\d]*)$/i.test(brand) || /[\~\^\_\|\\]/.test(brand) || /cl\s*p\s*9|ap\s*ss/i.test(brand)) {
+          brand = "";
+        }
       }
 
       const reconstructed = `${finalSource}\t${generic}\t${code}\t${brand}\t${finalDate}`;

@@ -513,6 +513,23 @@ function initApp() {
     });
   });
 
+  function sanitizeBrandName(rawBrand, codeDisplay) {
+    if (!rawBrand) return '';
+    const s = rawBrand.trim();
+    // 1. 若健保代碼字典中有明確標準商品名，優先使用
+    if (codeDisplay && typeof NHI_CODE_LOOKUP !== 'undefined') {
+      const dict = NHI_CODE_LOOKUP[codeDisplay] || (codeDisplay.length >= 10 ? NHI_CODE_LOOKUP[codeDisplay.substring(0, 10)] : null);
+      if (dict && dict.brand) return dict.brand;
+    }
+    // 2. 嚴格過濾 OCR 殘缺雜訊（如純劑量、怪符號、短字母碎片、OCR 亂碼）
+    if (s.length < 3) return '';
+    if (/^(\.?\d+[\/\.\d]*(mg|mcg|g|%)?(\s*(hs|bid|tid|qd|qn|po|pc|tab|cap|vial|amp)\b)*[\s\d]*)$/i.test(s)) return '';
+    if (/[\~\^\_\|\\]/.test(s)) return '';
+    if (/^[a-z]{1,2}$/i.test(s)) return '';
+    if (/cl\s*p\s*9|ap\s*ss/i.test(s)) return '';
+    return s;
+  }
+
   // ─── Main search ───────────────────────────────────────────────────────────
   function handleSearch(text) {
     if (!text || !text.trim()) {
@@ -603,14 +620,14 @@ function initApp() {
         const card = document.createElement('div');
         card.className = 'drug-card';
 
-        const dateStr    = item.visitDate    ? item.visitDate            : '';
-        const codeMatch  = item.originalLine ? item.originalLine.match(/\b([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})\b/) : null;
+        const dateStr     = item.visitDate    ? item.visitDate            : '';
+        const codeMatch   = item.originalLine ? item.originalLine.match(/\b([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})\b/) : null;
         const codeDisplay = item.hasCode && codeMatch ? codeMatch[1].toUpperCase() : '';
-        const dictEntry  = (codeDisplay && typeof NHI_CODE_LOOKUP !== 'undefined') ? (NHI_CODE_LOOKUP[codeDisplay] || (codeDisplay.length >= 10 ? NHI_CODE_LOOKUP[codeDisplay.substring(0, 10)] : null)) : null;
-
-        const genericStr = (dictEntry && dictEntry.generic) || item.genericName || '';
-        const brandStr   = (dictEntry && dictEntry.brand)   || item.brandName   || '';
-        const headline   = genericStr || brandStr || item.originalLine || '未知名稱';
+        const dictEntry   = (codeDisplay && typeof NHI_CODE_LOOKUP !== 'undefined') ? (NHI_CODE_LOOKUP[codeDisplay] || (codeDisplay.length >= 10 ? NHI_CODE_LOOKUP[codeDisplay.substring(0, 10)] : null)) : null;
+        const genericStr  = (dictEntry && dictEntry.generic) || item.genericName || '';
+        const rawBrand    = (dictEntry && dictEntry.brand)   || item.brandName   || '';
+        const brandStr    = sanitizeBrandName(rawBrand, codeDisplay);
+        const headline    = genericStr || brandStr || item.originalLine || '未知名稱';
         const { tag, label } = getSeverityInfo(item.severity);
 
         // 來源標籤
@@ -852,8 +869,9 @@ function initApp() {
       const codeDisplay = item.hasCode && codeMatch ? codeMatch[1].toUpperCase() : (d.code && /^[A-Za-z]{1,2}\d{5,10}/.test(d.code) ? d.code.toUpperCase() : '');
       const dictEntry = (codeDisplay && typeof NHI_CODE_LOOKUP !== 'undefined') ? (NHI_CODE_LOOKUP[codeDisplay] || (codeDisplay.length >= 10 ? NHI_CODE_LOOKUP[codeDisplay.substring(0, 10)] : null)) : null;
 
-      const generic = (dictEntry && dictEntry.generic) || item.genericName || (d.code && !/^[A-Za-z]{1,2}\d{5,10}/.test(d.code) ? d.code : '') || '';
-      const brand = (dictEntry && dictEntry.brand) || item.brandName || (d.usage && !/^\.?\d+mg/i.test(d.usage) ? d.usage : '') || '';
+      const generic  = (dictEntry && dictEntry.generic) || item.genericName || (d.code && !/^[A-Za-z]{1,2}\d{5,10}/.test(d.code) ? d.code : '') || '';
+      const rawBrand = (dictEntry && dictEntry.brand)   || item.brandName   || (d.usage && !/^\.?\d+mg/i.test(d.usage) ? d.usage : '') || '';
+      const brand    = sanitizeBrandName(rawBrand, codeDisplay);
       const displayName = generic || brand || item.originalLine || '未知名稱';
 
       let subDetails = '';
