@@ -208,6 +208,11 @@ function cleanGenericName(rawGeneric) {
 function preprocessOcrText(rawText) {
   if (!rawText || !rawText.trim()) return rawText;
 
+  // 若文字中已含有多個 Tab 欄位分隔字元（表示是由健保署雲端藥歷直接複製貼上的格式），直接略過 OCR 前處理，確保第一筆院所名稱不被吃掉
+  if ((rawText.match(/\t/g) || []).length >= 3) {
+    return rawText;
+  }
+
   const lines = rawText.split(/[\r\n]+/).map(l => l.trim()).filter(l => l.length > 0);
   const reconstructedLines = [];
   let buffer = [];
