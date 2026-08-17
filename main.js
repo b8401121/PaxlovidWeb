@@ -825,8 +825,7 @@ function initApp() {
     const seen = new Set();
     const unique = [];
     for (const item of selectedItems) {
-      const d = parsePrintLine(item);
-      const key = (d.usage || d.code || d.name || '').trim().toLowerCase();
+      const key = (item.drugKey || item.genericName || item.brandName || item.originalLine || '').trim().toLowerCase();
       if (!seen.has(key)) { seen.add(key); unique.push(item); }
     }
     return unique.map(item => {
@@ -834,9 +833,40 @@ function initApp() {
       const badgeClass = isDanger ? 'badge-danger' : 'badge-warning';
       const badgeText  = isDanger ? '絕對不可併用' : '需調整/減量';
       const icon       = isDanger ? '🔴' : '🟡';
-      const displayName = d.usage || d.code || d.name || '未知名稱';
-      const subDetails = (d.code || d.name) && d.usage
-        ? `<div style="font-size:8.5pt;color:#475569;margin-top:2px">學名：${d.code||'-'} / 代碼：${d.name||'-'}</div>` : '';
+
+      // 健保代碼與字典標準名稱補全
+      const codeMatch = item.originalLine ? item.originalLine.match(/\b([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})\b/) : null;
+      const codeDisplay = item.hasCode && codeMatch ? codeMatch[1].toUpperCase() : (d.code && /^[A-Za-z]{1,2}\d{5,10}/.test(d.code) ? d.code.toUpperCase() : '');
+      const dictEntry = (codeDisplay && typeof NHI_CODE_LOOKUP !== 'undefined') ? (NHI_CODE_LOOKUP[codeDisplay] || (codeDisplay.length >= 10 ? NHI_CODE_LOOKUP[codeDisplay.substring(0, 10)] : null)) : null;
+
+      const generic = (dictEntry && dictEntry.generic) || item.genericName || (d.code && !/^[A-Za-z]{1,2}\d{5,10}/.test(d.code) ? d.code : '') || '';
+      const brand = (dictEntry && dictEntry.brand) || item.brandName || (d.usage && !/^\.?\d+mg/i.test(d.usage) ? d.usage : '') || '';
+      const displayName = generic || brand || item.originalLine || '未知名稱';
+
+      let subDetails = '';
+      if (generic && brand) {
+        subDetails = `<div style="font-size:8.5pt;color:#475569;margin-top:2px">學名：${generic} / 商品名：${brand}${codeDisplay ? ' / 代碼：' + codeDisplay : ''}</div>`;
+      } else if (generic || brand) {
+        subDetails = `<div style="font-size:8.5pt;color:#475569;margin-top:2px">${generic ? '學名：' + generic : ''}${brand ? '商品名：' + brand : ''}${codeDisplay ? ' / 代碼：' + codeDisplay : ''}</div>`;
+      }
+
+      // 取得臨床處置建議
+      let suggestion = '';
+      const drugKey = (item.drugKey || '').toLowerCase();
+      if (drugKey && typeof DICT !== 'undefined' && DICT[drugKey]) {
+        let raw = DICT[drugKey];
+        if (raw.startsWith('{') && raw.includes('}')) {
+          raw = raw.substring(raw.indexOf('}') + 1).trim();
+        }
+        suggestion = raw;
+      }
+      if (!suggestion) {
+        suggestion = d.suggestion;
+      }
+      if (!suggestion) {
+        suggestion = isDanger ? '絕對不可與 Paxlovid 併用，請停藥 8 天。' : '此藥物與 Paxlovid 具潛在交互作用，請密切監測或調整劑量。';
+      }
+
       const sourceStr = item.source
         ? `${item.source}${item.visitType ? '・' + item.visitType : ''}`
         : '';
@@ -850,7 +880,7 @@ function initApp() {
           </td>
           <td style="font-size:8.5pt;color:#334155">${metaHtml}</td>
           <td>
-            <div class="suggestion-text">${icon} ${d.suggestion}</div>
+            <div class="suggestion-text">${icon} ${suggestion}</div>
             <div style="margin-top:4px">
               <span class="badge ${badgeClass}">${badgeText}</span>
               <span style="font-size:8pt;color:#64748b;margin-left:6px">停藥/減量 8 天</span>
