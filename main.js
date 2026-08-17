@@ -249,20 +249,29 @@ function initApp() {
           const cropBottom = Math.round(img.height * cropBottomRatio);
           const newHeight  = img.height - cropTop - cropBottom;
 
-          canvas.width  = img.width;
-          canvas.height = newHeight;
+          // 2x 高解析度升採樣：Tesseract 在文字筆畫高度 25-35px 時辨識率最高
+          const scale = 2.0;
+          canvas.width  = img.width * scale;
+          canvas.height = newHeight * scale;
 
-          // 繪製裁切後的圖片
-          ctx.drawImage(img, 0, cropTop, img.width, newHeight, 0, 0, img.width, newHeight);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, cropTop, img.width, newHeight, 0, 0, canvas.width, canvas.height);
 
-          // 對比度微調（增強表格文字清晰度）
+          // 灰階化與高對比增強（將健保雲端淺綠色表格底色完全漂白，深色字體加深）
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const d = imageData.data;
-          const contrast = 1.15;
           for (let p = 0; p < d.length; p += 4) {
-            d[p]   = Math.min(255, Math.max(0, (d[p]   - 128) * contrast + 128));
-            d[p+1] = Math.min(255, Math.max(0, (d[p+1] - 128) * contrast + 128));
-            d[p+2] = Math.min(255, Math.max(0, (d[p+2] - 128) * contrast + 128));
+            const gray = 0.299 * d[p] + 0.587 * d[p+1] + 0.114 * d[p+2];
+            let val = gray;
+            if (val > 180) {
+              val = 255; // 清除淺綠色背景為純白
+            } else {
+              val = Math.max(0, val * 0.8); // 加深文字筆畫
+            }
+            d[p]   = val;
+            d[p+1] = val;
+            d[p+2] = val;
           }
           ctx.putImageData(imageData, 0, 0);
 

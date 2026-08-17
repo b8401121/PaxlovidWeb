@@ -871,7 +871,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
   const isNhiDrugCode = (str) => {
     if (!str) return false;
     const s = str.trim();
-    return /^[A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3}$/.test(s) && s.length >= 9 && s.length <= 11;
+    return /^[A-Za-z]{1,2}\d{5,9}[A-Za-z0-9]{0,3}$/.test(s) && s.length >= 8 && s.length <= 11;
   };
   const codeRe = /^[A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3}$/;
   const dateRe = /^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}/;
@@ -960,6 +960,12 @@ function parseAndCategorizeCloudPrescription(rawText) {
       if (NHI_CODE_LOOKUP[codeKey] && isGarbled) {
         genericName = NHI_CODE_LOOKUP[codeKey].generic;
         if (!brandName) brandName = NHI_CODE_LOOKUP[codeKey].brand;
+      }
+    } else {
+      // 若無標準健保碼，嘗試檢查第 0 或第 1 欄是否為學名/商品名
+      if (cols.length >= 2 && /^[A-Za-z]/.test(cols[0]) && cols[0].length >= 3 && !/^(門診|住診|藥局|\d+|[A-Z]\d{2,4})$/.test(cols[0])) {
+        genericName = cols[0];
+        brandName = cols[1];
       }
     }
 
