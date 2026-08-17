@@ -1128,22 +1128,48 @@ function parseAndCategorizeCloudPrescription(rawText) {
     groups.get(item.drugKey).push(item);
   }
 
+  const validItems = [];
   for (const [key, group] of groups.entries()) {
-    if (group.length > 1) {
-      // Sort in descending order of dateKey so the latest is first
-      group.sort((a, b) => b.dateKey.localeCompare(a.dateKey));
-      
-      // Mark all of them as duplicate
-      group.forEach((item, index) => {
-        item.isDuplicate = true;
-        // Pre-check only the latest one (index === 0)
+    // Sort in descending order of dateKey so the latest with valid date is first
+    group.sort((a, b) => {
+      if (b.dateKey !== a.dateKey) return b.dateKey.localeCompare(a.dateKey);
+      const aScore = (a.genericName ? 2 : 0) + (a.brandName ? 1 : 0);
+      const bScore = (b.genericName ? 2 : 0) + (b.brandName ? 1 : 0);
+      return bScore - aScore;
+    });
+
+    const hasDatedItem = group.some(it => it.visitDate && it.dateKey !== "0000-00-00");
+    // 排除無日期的 OCR 殘缺碎片（若該藥物已有含日期的完整項目）
+    const filteredGroup = hasDatedItem 
+      ? group.filter(it => it.visitDate && it.dateKey !== "0000-00-00")
+      : [group[0]];
+
+    // 同一就醫日期的重複記錄僅保留最完整的一筆
+    const uniqueDateGroup = [];
+    const seenDates = new Set();
+    for (const it of filteredGroup) {
+      const dKey = it.visitDate || 'no_date';
+      if (!seenDates.has(dKey)) {
+        seenDates.add(dKey);
+        uniqueDateGroup.push(it);
+      }
+    }
+
+    if (uniqueDateGroup.length > 1) {
+      uniqueDateGroup.forEach((item, index) => {
+        item.isDuplicate = (index > 0);
         item.selectedForPrint = (index === 0);
+        validItems.push(item);
       });
+    } else if (uniqueDateGroup.length === 1) {
+      uniqueDateGroup[0].isDuplicate = false;
+      uniqueDateGroup[0].selectedForPrint = true;
+      validItems.push(uniqueDateGroup[0]);
     }
   }
 
   // Push to final lists
-  for (const parsedItem of tempItems) {
+  for (const parsedItem of validItems) {
     if (parsedItem.severity === "contraindicated") {
       contraindicated.push(parsedItem);
     } else if (parsedItem.severity === "interactive") {
@@ -1156,7 +1182,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
   }
 
   // Filter and sort all unique medication entries for the summary overview
-  const allItems = tempItems.filter(it => it.hasCode || it.genericName || it.brandName);
+  const allItems = validItems.filter(it => it.hasCode || it.genericName || it.brandName);
   allItems.sort((a, b) => {
     if (b.dateKey !== a.dateKey) {
       return b.dateKey.localeCompare(a.dateKey);
