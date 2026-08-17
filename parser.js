@@ -836,14 +836,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
       }
     }
 
-    if (hasCode) {
-      const match = cols[codeIdx].match(/([A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3})/);
-      const codeKey = match ? match[1].toUpperCase() : cols[codeIdx].toUpperCase();
-      if (NHI_CODE_LOOKUP[codeKey]) {
-        severity = NHI_CODE_LOOKUP[codeKey].severity;
-        matchedKw = (NHI_CODE_LOOKUP[codeKey].generic || genericName).toLowerCase();
-      }
-    }
+
     let visitDate = "";
     const targetIdx = cols.indexOf(genericName || brandName || "");
     if (targetIdx !== -1) {
