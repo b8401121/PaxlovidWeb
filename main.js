@@ -258,17 +258,14 @@ function initApp() {
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, cropTop, img.width, newHeight, 0, 0, canvas.width, canvas.height);
 
-          // 灰階化與高對比增強（將健保雲端淺綠色表格底色完全漂白，深色字體加深）
+          // 灰階化與平滑對比度增強（完整保留次像素抗鋸齒，避免細筆畫文字如 Lorazepam, Rosuvastatin 斷裂）
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const d = imageData.data;
+          const contrast = 1.35;
           for (let p = 0; p < d.length; p += 4) {
             const gray = 0.299 * d[p] + 0.587 * d[p+1] + 0.114 * d[p+2];
-            let val = gray;
-            if (val > 180) {
-              val = 255; // 清除淺綠色背景為純白
-            } else {
-              val = Math.max(0, val * 0.8); // 加深文字筆畫
-            }
+            let val = (gray - 128) * contrast + 128;
+            val = Math.min(255, Math.max(0, val));
             d[p]   = val;
             d[p+1] = val;
             d[p+2] = val;
