@@ -839,15 +839,16 @@ function initApp() {
         ? `<div style="font-size:8.5pt;color:#475569;margin-top:2px">學名：${d.code||'-'} / 代碼：${d.name||'-'}</div>` : '';
       const sourceStr = item.source
         ? `${item.source}${item.visitType ? '・' + item.visitType : ''}`
-        : '—';
+        : '';
       const dateStr = fmtDatePrint(item.visitDate) || '—';
+      const metaHtml = sourceStr ? `${sourceStr}<br><span style="color:#64748b">${dateStr}</span>` : dateStr;
       return `
         <tr>
           <td>
             <div style="font-weight:bold;color:#0f172a">${displayName}</div>
             ${subDetails}
           </td>
-          <td style="font-size:8.5pt;color:#334155">${sourceStr}<br><span style="color:#64748b">${dateStr}</span></td>
+          <td style="font-size:8.5pt;color:#334155">${metaHtml}</td>
           <td>
             <div class="suggestion-text">${icon} ${d.suggestion}</div>
             <div style="margin-top:4px">

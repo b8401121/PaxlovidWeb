@@ -447,10 +447,8 @@ function preprocessOcrText(rawText) {
         }
       }
 
-      let finalSource = source;
-      if (visitType) {
-        finalSource = finalSource ? `${finalSource}（${visitType}）` : `（${visitType}）`;
-      }
+      // OCR 辨識不保留診所名稱（避免 OCR 誤讀混淆），剪下貼上模式則會保留
+      let finalSource = "";
 
       // NHI Code Dictionary fallback: if generic is empty, garbled, or code exists in dictionary, canonicalize generic & brand
       if (typeof NHI_CODE_LOOKUP !== 'undefined' && NHI_CODE_LOOKUP[code]) {
