@@ -252,9 +252,9 @@ function preprocessOcrText(rawText) {
       return match;
     });
 
-    // ── 分離附著在英文字母旁的健保代碼 ──────────────────────────────────
-    line = line.replace(/([a-z])([A-Z]{1,2}\d{5,9})/g, '$1 $2');
-    line = line.replace(/([A-Z]{1,2}\d{5,9})([A-Za-z])/g, '$1 $2');
+    // ── 分離附著在英文字母旁的健保代碼（僅當前後有 3 個以上英文字母時，避免拆斷 G0, 60 等代碼後綴） ────────────────
+    line = line.replace(/([a-z]{3,})([A-Za-z]{1,2}\d{5,9}[A-Za-z0-9]{0,3})/gi, '$1 $2');
+    line = line.replace(/([A-Za-z]{1,2}\d{5,9}[A-Za-z0-9]{0,3})([A-Za-z]{3,})/gi, '$1 $2');
 
     let codeMatch = line.match(/\b([A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3})\b/);
     if (!codeMatch) {
@@ -972,8 +972,22 @@ function parseAndCategorizeCloudPrescription(rawText) {
         if (!brandName || brandName.length < 3) brandName = NHI_CODE_LOOKUP[codeKey].brand;
       }
     } else {
+      // 若無欄位被判定為健保碼，嘗試由整行正則擷取健保碼
+      const codeMatch = block.match(/\b([A-Za-z]{1,2}\d{5,9}[A-Za-z0-9]{0,3})\b/);
+      if (codeMatch) {
+        let codeKey = codeMatch[1].toUpperCase();
+        if (!NHI_CODE_LOOKUP[codeKey] && codeKey.length >= 10) {
+          const p10 = codeKey.substring(0, 10);
+          if (NHI_CODE_LOOKUP[p10]) codeKey = p10;
+        }
+        if (NHI_CODE_LOOKUP[codeKey]) {
+          genericName = NHI_CODE_LOOKUP[codeKey].generic;
+          brandName = NHI_CODE_LOOKUP[codeKey].brand;
+          hasCode = true;
+        }
+      }
       // 若無標準健保碼，嘗試檢查第 0 或第 1 欄是否為學名/商品名
-      if (cols.length >= 2 && /^[A-Za-z]/.test(cols[0]) && cols[0].length >= 3 && !/^(門診|住診|藥局|\d+|[A-Z]\d{2,4})$/.test(cols[0])) {
+      if (!genericName && cols.length >= 2 && /^[A-Za-z]/.test(cols[0]) && cols[0].length >= 3 && !/^(門診|住診|藥局|\d+|[A-Z]\d{2,4})$/.test(cols[0])) {
         genericName = cols[0];
         brandName = cols[1];
       }
@@ -1052,6 +1066,17 @@ function parseAndCategorizeCloudPrescription(rawText) {
         severity = NHI_CODE_LOOKUP[codeKey].severity;
         matchedKw = (genericName || NHI_CODE_LOOKUP[codeKey].generic).toLowerCase();
       }
+    }
+
+    if (!genericName && matchedKw) {
+      if (matchedKw.toLowerCase() === 'doxazosin') genericName = 'Doxazosin (Mesylate)';
+      else if (matchedKw.toLowerCase() === 'amlodipine') genericName = 'Amlodipine (Besylate)';
+      else if (matchedKw.toLowerCase() === 'valsartan') genericName = 'Valsartan';
+      else if (matchedKw.toLowerCase() === 'amiodarone') genericName = 'Amiodarone Hcl';
+      else if (matchedKw.toLowerCase() === 'rosuvastatin') genericName = 'Rosuvastatin Calcium';
+      else if (matchedKw.toLowerCase() === 'levothyroxine') genericName = 'Levothyroxine Sodium';
+      else if (matchedKw.toLowerCase() === 'lorazepam') genericName = 'Lorazepam';
+      else genericName = matchedKw.charAt(0).toUpperCase() + matchedKw.slice(1);
     }
 
     let cleanLineScreen = "";
