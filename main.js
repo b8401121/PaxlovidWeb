@@ -552,11 +552,16 @@ function initApp() {
     const parts = d.split(/[\/\.-]/);
     if (parts.length >= 3) {
       let y = parseInt(parts[0], 10);
+      if (y >= 1000 && y < 1911) {
+        y = y % 1000;
+      }
       if (y < 1911) {
         y += 1911;
         if (y < 2015 && (y + 100) <= (new Date().getFullYear() + 2)) {
           y += 100;
         }
+      } else if (y > 2100) {
+        y = (y % 1000) + 1911;
       }
       return `${y}/${parts[1].padStart(2,'0')}/${parts[2].padStart(2,'0')}`;
     }

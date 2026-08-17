@@ -444,8 +444,8 @@ function preprocessOcrText(rawText) {
         finalSource = finalSource ? `${finalSource}（${visitType}）` : `（${visitType}）`;
       }
 
-      // NHI Code Dictionary fallback: if generic is empty or garbled, look up by code
-      if ((!generic || generic.length < 3 || /^[A-Z\s]{1,4}$/.test(generic) || /EwEE|BEEE|TERF|ENE|system|agents|preparations/i.test(generic)) && typeof NHI_CODE_LOOKUP !== 'undefined' && NHI_CODE_LOOKUP[code]) {
+      // NHI Code Dictionary fallback: if generic is empty, garbled, or contains Chinese, look up by code
+      if ((!generic || generic.length < 3 || /^[A-Z\s]{1,4}$/.test(generic) || /[\u4e00-\u9fa5]/.test(generic) || /EwEE|BEEE|TERF|ENE|system|agents|preparations/i.test(generic)) && typeof NHI_CODE_LOOKUP !== 'undefined' && NHI_CODE_LOOKUP[code]) {
         const entry = NHI_CODE_LOOKUP[code];
         generic = entry.generic || generic;
         if (!brand || brand.length < 3) brand = entry.brand || brand;
@@ -969,7 +969,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
         const p10 = codeKey.substring(0, 10);
         if (NHI_CODE_LOOKUP[p10]) codeKey = p10;
       }
-      const isGarbled = !genericName || genericName.length < 3 || /^[A-Za-z]{1,2}$/.test(genericName) || /^[0-9\W]+$/.test(genericName) || /EwEExER|BEEEER|TERFERERE|ENE|stage 3|日 數|ramine Hcl|Psycholeptics|Psychoanaleptics|Ophthalmologicals|Antiepileptics|Laxatives|Urologicals|renin-angiotensin|作用在腎素|血管緊張素|安定劑|興奮劑|眼科|抗癲癇|泌尿|輕瀉|^A\+B|calcium/i.test(genericName);
+      const isGarbled = !genericName || genericName.length < 3 || /^[A-Za-z]{1,2}$/.test(genericName) || /^[0-9\W]+$/.test(genericName) || /[\u4e00-\u9fa5]/.test(genericName) || /EwEExER|BEEEER|TERFERERE|ENE|stage 3|日 數|ramine Hcl|Psycholeptics|Psychoanaleptics|Ophthalmologicals|Antiepileptics|Laxatives|Urologicals|renin-angiotensin|作用在腎素|血管緊張素|安定劑|興奮劑|眼科|抗癲癇|泌尿|輕瀉|^A\+B|calcium/i.test(genericName);
       if (NHI_CODE_LOOKUP[codeKey] && (isGarbled || !brandName || brandName.length < 3)) {
         if (isGarbled) genericName = NHI_CODE_LOOKUP[codeKey].generic;
         if (!brandName || brandName.length < 3) brandName = NHI_CODE_LOOKUP[codeKey].brand;
@@ -1025,11 +1025,16 @@ function parseAndCategorizeCloudPrescription(rawText) {
         let y = parseInt(parts[0], 10);
         let m = parseInt(parts[1], 10);
         let d = parseInt(parts[2], 10);
+        if (y >= 1000 && y < 1911) {
+          y = y % 1000;
+        }
         if (y < 1911) {
           y += 1911; // Taiwan ROC Year to Common Era Year
           if (y < 2015 && (y + 100) <= (new Date().getFullYear() + 2)) {
             y += 100;
           }
+        } else if (y > 2100) {
+          y = (y % 1000) + 1911;
         }
         if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
           dateKey = `${y.toString().padStart(4, "0")}-${m.toString().padStart(2, "0")}-${d.toString().padStart(2, "0")}`;
