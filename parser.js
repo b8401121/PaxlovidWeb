@@ -34,6 +34,47 @@ const NHI_CODE_LOOKUP = {
   "AC19616329": { generic: "Betamethasone (Dipropionate)", brand: "BETAMETHASONE OINT", severity: "safe" }
 };
 
+const BRAND_OR_GENERIC_TO_CODE = {
+  "diovan": "BC23374100",
+  "valsartan": "BC23374100",
+  "tamlosin": "AC60574100",
+  "harnalidge": "BC25413100",
+  "tamsulosin": "BC25413100",
+  "risperdal": "BC22768100",
+  "risperidone": "BC22768100",
+  "hamgo": "AC47486197",
+  "piracetam": "AC47486197",
+  "bokey": "AC373441G0",
+  "aspirin": "AC373441G0",
+  "sennapur": "A043488100",
+  "sennoside": "A043488100",
+  "bisadyl": "AC36350500",
+  "bisacodyl": "AC36350500",
+  "concor": "BC240391G0",
+  "bisoprolol": "BC240391G0",
+  "eltroxin": "BC25533100",
+  "levothyroxine": "BC25533100",
+  "fronil": "NC017521G0",
+  "imipramine": "NC017521G0",
+  "magnesium oxide": "A023521100",
+  "through": "A037697100",
+  "destone": "AC41577100",
+  "euricon": "AC427541G0",
+  "benzbromarone": "AC427541G0",
+  "kalimate": "AC62078121",
+  "artelac": "B020735429",
+  "kary uni": "BC21628421",
+  "pirenoxine": "BC21628421",
+  "actein": "AB45993100",
+  "acetylcysteine": "AB45993100",
+  "allegra": "BC230161G0",
+  "fexofenadine": "BC230161G0",
+  "ultibro": "BC26301443",
+  "secorine": "A040833157",
+  "dufanas": "AC60851457",
+  "dex-ctm": "A027040100"
+};
+
 function cleanGenericName(rawGeneric) {
   if (!rawGeneric) return "";
   
@@ -191,10 +232,31 @@ function preprocessOcrText(rawText) {
       return match;
     });
 
-    const codeMatch = line.match(/\b([A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3})\b/);
+    // ── 分離附著在英文字母旁的健保代碼 ──────────────────────────────────
+    line = line.replace(/([a-z])([A-Z]{1,2}\d{5,9})/g, '$1 $2');
+    line = line.replace(/([A-Z]{1,2}\d{5,9})([A-Za-z])/g, '$1 $2');
+
+    let codeMatch = line.match(/\b([A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3})\b/);
+    if (!codeMatch) {
+      codeMatch = line.match(/\b([A-Za-z]{1,2}\d{5,9}[A-Za-z0-9]{0,3})\b/);
+    }
     
-    if (codeMatch && codeMatch[1].length >= 9 && codeMatch[1].length <= 11 && !line.includes('\t')) {
-      const code = codeMatch[1];
+    let code = codeMatch ? codeMatch[1] : "";
+    let isKeywordFallback = false;
+
+    // 若 OCR 漏認了健保代碼，但該行含有已知藥物關鍵字，自動由字典補全代碼
+    if (!code && !line.includes('\t')) {
+      const lineLower = line.toLowerCase();
+      for (const kw of Object.keys(BRAND_OR_GENERIC_TO_CODE)) {
+        if (lineLower.includes(kw)) {
+          code = BRAND_OR_GENERIC_TO_CODE[kw];
+          isKeywordFallback = true;
+          break;
+        }
+      }
+    }
+
+    if (code && !line.includes('\t')) {
       const dateMatch = line.match(/(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/);
       const date = dateMatch ? dateMatch[1] : "";
 
@@ -229,9 +291,21 @@ function preprocessOcrText(rawText) {
         }
       }
 
-      const parts = line.split(code);
-      const leftPart = parts[0].trim();
-      const rightPart = parts[1] ? parts[1].trim() : "";
+      let leftPart = "";
+      let rightPart = "";
+      if (!isKeywordFallback && line.includes(code)) {
+        const parts = line.split(code);
+        leftPart = parts[0].trim();
+        rightPart = parts[1] ? parts[1].trim() : "";
+      } else {
+        if (date) {
+          const dParts = line.split(date);
+          leftPart = dParts[0].trim();
+          rightPart = dParts[1] ? dParts[1].trim() : "";
+        } else {
+          leftPart = line;
+        }
+      }
 
       let brand = "";
       if (rightPart && date) {
