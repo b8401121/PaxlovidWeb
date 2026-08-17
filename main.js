@@ -376,12 +376,9 @@ function initApp() {
       }
 
       if (results.length > 0) {
-        const existingText = searchInput.value.trim();
         const newText = results.join('\n');
-        const combinedText = existingText ? `${existingText}\n${newText}` : newText;
-
-        searchInput.value = combinedText;
-        handleSearch(combinedText);
+        searchInput.value = newText;
+        handleSearch(newText);
       }
 
       ocrProgContainer.classList.add('hidden');
