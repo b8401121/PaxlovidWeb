@@ -18,6 +18,12 @@ const NHI_CODE_LOOKUP = {
   "BC24645100": { generic: "Valsartan", brand: "Diovan Film-Coated Tablets 40mg", severity: "interactive" },
   "BC23374100": { generic: "Valsartan", brand: "DIOVAN 160MG", severity: "interactive" },
   "AC60574100": { generic: "Tamsulosin Hcl", brand: "Tamlosin 0.4mg", severity: "interactive" },
+  "AC58548100": { generic: "Tamsulosin Hcl", brand: "Tamlosin D Tablets 0.2mg", severity: "interactive" },
+  "AC57216100": { generic: "Niacin ; Lovastatin", brand: "500/20mg", severity: "contraindicated" },
+  "AC45960435": { generic: "Sulfamethoxazole", brand: "SINOMIN OPHTHALMIC SOLUTION", severity: "safe" },
+  "BC15292421": { generic: "Carteolol Hcl", brand: "ARTEOPTIC 2% OPHTHALMIC SOLUTION", severity: "safe" },
+  "AC577911G0": { generic: "Famotidine", brand: "Famotidine 20mg", severity: "safe" },
+  "AC57791160": { generic: "Famotidine", brand: "Famotidine 20mg", severity: "safe" },
   "BC25413100": { generic: "Tamsulosin Hcl", brand: "Harnalidge OCAS 0.4mg", severity: "interactive" },
   "BC22768100": { generic: "Risperidone", brand: "RISPERDAL Film Coated TABLET 2MG", severity: "interactive" },
   "AC47486197": { generic: "Piracetam", brand: "HAMGO GRANULES 1200MG", severity: "safe" },
@@ -1167,10 +1173,11 @@ function parseAndCategorizeCloudPrescription(rawText) {
       }
     }
     
-    const matchCode = lineCode ? (lineCode.match(/([A-Za-z]{1,2}\d{5,10}[A-Za-z0-9]{0,3})/) || [null, ''])[1].toUpperCase() : '';
-    const codeLookupKey = matchCode && !NHI_CODE_LOOKUP[matchCode] && matchCode.length >= 10 ? matchCode.substring(0, 10) : matchCode;
-    const standardGeneric = codeLookupKey && NHI_CODE_LOOKUP[codeLookupKey] ? NHI_CODE_LOOKUP[codeLookupKey].generic : '';
-    const drugKey = (standardGeneric || matchedKw || genericName || brandName || blockLower).toLowerCase();
+    const rawKey = (standardGeneric || matchedKw || genericName || brandName || blockLower).toLowerCase();
+    const drugKey = rawKey.replace(/\s*[\(\（].*?[\)\）]/g, '')
+                          .replace(/\s+(calcium|besylate|mesylate|hcl|hydrochloride|sodium|potassium|tartrate|fumarate|maleate|succinate|sulfate|nitrate|phosphate|citrate|acetate)\b/gi, '')
+                          .replace(/\s+\d+(\.\d+)?(mg|mcg|g|%)?/gi, '')
+                          .trim() || rawKey;
     const srcInfo = sourceMap[idx] || { source: '', visitType: '' };
 
     tempItems.push({
