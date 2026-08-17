@@ -309,7 +309,7 @@ function initApp() {
       // 確保 worker 實例正常，若已終止或未初始化則建立
       if (!ocrWorker) {
         ocrStatusText.textContent = '載入 OCR 辨識引擎...';
-        ocrWorker = await Tesseract.createWorker('eng+chi_tra', 1, {
+        const workerOptions = {
           logger: m => {
             if (m.status === 'recognizing text') {
               const progress = Math.round(m.progress * 100);
@@ -321,7 +321,15 @@ function initApp() {
                                          m.status === 'initializing api' ? '初始化辨識介面...' : '準備辨識...';
             }
           }
-        });
+        };
+
+        try {
+          ocrWorker = await Tesseract.createWorker('eng+chi_tra', 1, workerOptions);
+        } catch (initErr) {
+          console.warn('eng+chi_tra failed, fallback to eng:', initErr);
+          ocrStatusText.textContent = '切換高速英文模式載入...';
+          ocrWorker = await Tesseract.createWorker('eng', 1, workerOptions);
+        }
       }
 
       const results = [];
@@ -352,10 +360,10 @@ function initApp() {
           }
         } catch (itemErr) {
           console.warn(`Error recognizing image ${i+1}:`, itemErr);
-          // 若單張發生 worker 異常，使用 Tesseract.recognize 獨立呼叫嘗試挽救
+          // 若單張發生 worker 異常，使用獨立呼叫嘗試挽救
           try {
             const processedImg = await preprocessImageForOCR(file);
-            const fallbackRes = await Tesseract.recognize(processedImg, 'eng+chi_tra');
+            const fallbackRes = await Tesseract.recognize(processedImg, 'eng');
             const rawText = fallbackRes.data ? fallbackRes.data.text : '';
             const preprocessedText = preprocessOcrText(rawText);
             if (preprocessedText && preprocessedText.trim()) {
