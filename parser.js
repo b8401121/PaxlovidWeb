@@ -1,5 +1,13 @@
 // ── 健保代碼智慧補全字典（若 OCR 學名辨識亂碼或缺失時直接校正）───────────
 const NHI_CODE_LOOKUP = {
+  "BC14822100": { generic: "Amiodarone Hcl", brand: "CORDARONE TABLETS", severity: "contraindicated" },
+  "BC187411G0": { generic: "Lorazepam", brand: "ATIVAN TABLETS 0.5MG", severity: "interactive" },
+  "BC18741160": { generic: "Lorazepam", brand: "ATIVAN TABLETS 0.5MG", severity: "interactive" },
+  "BC21571100": { generic: "Amlodipine (Besylate)", brand: "NORVASC TABLETS 5MG", severity: "interactive" },
+  "BC216411G0": { generic: "Doxazosin (Mesylate)", brand: "DOXABEN TABLET 2MG", severity: "interactive" },
+  "BC21641160": { generic: "Doxazosin (Mesylate)", brand: "DOXABEN TABLET 2MG", severity: "interactive" },
+  "BC24131100": { generic: "Rosuvastatin Calcium", brand: "CRESTOR 10MG FILM-COATED TABLETS", severity: "interactive" },
+  "BC24645100": { generic: "Valsartan", brand: "Diovan Film-Coated Tablets 40mg", severity: "interactive" },
   "BC23374100": { generic: "Valsartan", brand: "DIOVAN 160MG", severity: "interactive" },
   "AC60574100": { generic: "Tamsulosin Hcl", brand: "Tamlosin 0.4mg", severity: "interactive" },
   "BC25413100": { generic: "Tamsulosin Hcl", brand: "Harnalidge OCAS 0.4mg", severity: "interactive" },
@@ -35,8 +43,18 @@ const NHI_CODE_LOOKUP = {
 };
 
 const BRAND_OR_GENERIC_TO_CODE = {
-  "diovan": "BC23374100",
-  "valsartan": "BC23374100",
+  "amiodarone": "BC14822100",
+  "cordarone": "BC14822100",
+  "lorazepam": "BC187411G0",
+  "ativan": "BC187411G0",
+  "amlodipine": "BC21571100",
+  "norvasc": "BC21571100",
+  "doxazosin": "BC216411G0",
+  "doxaben": "BC216411G0",
+  "rosuvastatin": "BC24131100",
+  "crestor": "BC24131100",
+  "diovan": "BC24645100",
+  "valsartan": "BC24645100",
   "tamlosin": "AC60574100",
   "harnalidge": "BC25413100",
   "tamsulosin": "BC25413100",
@@ -80,6 +98,9 @@ function cleanGenericName(rawGeneric) {
   
   let cleaned = rawGeneric.trim();
   
+  // 清理尾部表格雜訊符號（如 ~~, ~, -, _ 等）
+  cleaned = cleaned.replace(/[\~\_\-\=\|\\\/]+$/g, '').trim();
+
   // OCR 常見醫學詞尾修復 (如 Hcl 被誤認成 Hd, Hci, Hel, Hct 等)
   cleaned = cleaned.replace(/\bHd\b/g, 'Hcl')
                    .replace(/\bHci\b/g, 'Hcl')
@@ -101,44 +122,29 @@ function cleanGenericName(rawGeneric) {
   if (typeof safe2 !== 'undefined') keywords.push(...safe2);
   if (typeof DICT !== 'undefined') keywords.push(...Object.keys(DICT));
   
-  const uniqueKeywords = Array.from(new Set(keywords)).filter(k => k.length > 2);
+  // 排除鹽類詞以避免誤判主藥名
+  const saltWords = new Set(["calcium", "sodium", "potassium", "hydrochloride", "hcl", "maleate", "besylate", "mesylate", "fumarate", "succinate", "tartrate", "acetate", "sulfate", "hydrate", "citrate", "phosphate"]);
+
+  const uniqueKeywords = Array.from(new Set(keywords))
+    .filter(k => k.length > 2 && !saltWords.has(k.toLowerCase()))
+    .sort((a, b) => b.length - a.length);
   
   const rawLower = cleaned.toLowerCase();
   let firstIdx = -1;
   
   for (const kw of uniqueKeywords) {
-    let searchFrom = 0;
-    while (true) {
-      const idx = rawLower.indexOf(kw, searchFrom);
-      if (idx === -1) break;
-      
-      // Skip matches that are strictly inside small parentheses (e.g. Sennoside A+B(Calcium) → 'calcium' is inside brackets)
-      let depth = 0;
-      for (let ci = 0; ci < idx; ci++) {
-        if (cleaned[ci] === '(' || cleaned[ci] === '（' || cleaned[ci] === '[' || cleaned[ci] === '【') depth++;
-        else if (cleaned[ci] === ')' || cleaned[ci] === '）' || cleaned[ci] === ']' || cleaned[ci] === '】' || cleaned[ci] === '}') depth--;
-      }
-      if (depth > 0) {
-        // 如果是 ATC 說明括號（含有 agents/system/preparations/acting 等），不要排除
-        const openParenIdx = Math.max(cleaned.lastIndexOf('(', idx), cleaned.lastIndexOf('（', idx), cleaned.lastIndexOf('[', idx));
-        const textBeforeKw = openParenIdx !== -1 ? cleaned.substring(openParenIdx, idx) : '';
-        const isAtcWrapper = /agent|acting|system|prep|use|treat|therap|class|inhibit|block/i.test(textBeforeKw);
-        if (!isAtcWrapper) {
-          searchFrom = idx + 1;
-          continue;
-        }
-      }
-      
-      // Accept this match
+    const idx = rawLower.indexOf(kw);
+    if (idx !== -1) {
       if (firstIdx === -1 || idx < firstIdx) {
         firstIdx = idx;
       }
-      break;
     }
   }
   
   if (firstIdx !== -1) {
-    return cleaned.substring(firstIdx).trim();
+    let result = cleaned.substring(firstIdx).trim();
+    result = result.replace(/^[\(\（\[\{\:\;\,\.\—\-\~\s]+/, '').replace(/[\~\_\-\=\|\\\/]+$/g, '').trim();
+    return result;
   }
   
   while (cleaned.startsWith('(') || cleaned.startsWith('（')) {
