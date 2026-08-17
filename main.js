@@ -613,8 +613,10 @@ function initApp() {
 
         // DICT suggestion
         let suggText = '';
-        if ((item.severity === 'contraindicated' || item.severity === 'interactive') && item.drugKey) {
-          let raw = (DICT && DICT[item.drugKey]) || '';
+        if (item.severity === 'contraindicated' || item.severity === 'interactive') {
+          let raw = typeof getDictSuggestion === 'function' 
+            ? getDictSuggestion(item.drugKey || item.genericName || item.brandName || item.originalLine)
+            : ((DICT && DICT[item.drugKey]) || '');
           if (raw.startsWith('{') && raw.includes('}')) raw = raw.substring(raw.indexOf('}') + 1).trim();
           if (raw) suggText = `<div class="drug-sugg">📋 ${raw}</div>`;
         }

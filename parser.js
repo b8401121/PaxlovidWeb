@@ -815,6 +815,28 @@ const SAFE_KEYWORDS = [
   "agomelatine"
 ];
 
+function getDictSuggestion(key) {
+  if (!key || typeof DICT === 'undefined') return '';
+  const k = key.toLowerCase().trim();
+  
+  // 1. 精準比對
+  if (DICT[k]) return DICT[k];
+  
+  // 2. 清理鹽類與括號 (如 rosuvastatin calcium -> rosuvastatin, amlodipine (besylate) -> amlodipine)
+  const cleanK = k.replace(/\s*[\(\（].*?[\)\）]/g, '')
+                  .replace(/\s+(calcium|besylate|mesylate|hcl|hydrochloride|sodium|potassium|tartrate|fumarate|maleate|succinate|sulfate|nitrate|phosphate|citrate|acetate)\b/gi, '')
+                  .trim();
+  if (DICT[cleanK]) return DICT[cleanK];
+
+  // 3. 遍歷字典鍵值進行包含搜尋
+  for (const dictKey of Object.keys(DICT)) {
+    if (k.includes(dictKey) || cleanK.includes(dictKey)) {
+      return DICT[dictKey];
+    }
+  }
+  return '';
+}
+
 function parseAndCategorizeCloudPrescription(rawText) {
   rawText = preprocessOcrText(rawText);
   const contraindicated = [];
@@ -1102,7 +1124,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
     let cleanLinePrint = "";
 
     if (severity === "contraindicated" || severity === "interactive") {
-      let rawSugg = DICT[matchedKw] || "";
+      let rawSugg = getDictSuggestion(matchedKw || genericName || drugKey);
       if (rawSugg && rawSugg.startsWith('{') && rawSugg.includes('}')) {
         rawSugg = rawSugg.substring(rawSugg.indexOf('}') + 1).trim();
       }
