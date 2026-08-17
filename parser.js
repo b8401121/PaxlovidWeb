@@ -1,3 +1,39 @@
+// ── 健保代碼智慧補全字典（若 OCR 學名辨識亂碼或缺失時直接校正）───────────
+const NHI_CODE_LOOKUP = {
+  "BC23374100": { generic: "Valsartan", brand: "DIOVAN 160MG", severity: "interactive" },
+  "AC60574100": { generic: "Tamsulosin Hcl", brand: "Tamlosin 0.4mg", severity: "interactive" },
+  "BC25413100": { generic: "Tamsulosin Hcl", brand: "Harnalidge OCAS 0.4mg", severity: "interactive" },
+  "BC22768100": { generic: "Risperidone", brand: "RISPERDAL Film Coated TABLET 2MG", severity: "interactive" },
+  "AC47486197": { generic: "Piracetam", brand: "HAMGO GRANULES 1200MG", severity: "safe" },
+  "AC373441G0": { generic: "Aspirin", brand: "BOKEY 100MG", severity: "safe" },
+  "AC37344160": { generic: "Aspirin", brand: "BOKEY 100MG", severity: "safe" },
+  "A043488100": { generic: "Sennoside A+B(Calcium)", brand: "SENNAPUR TABLETS", severity: "safe" },
+  "AC36350500": { generic: "Bisacodyl", brand: "BISADYL SUPPOSITORIES 10MG", severity: "safe" },
+  "BC240391G0": { generic: "Bisoprolol Fumarate", brand: "CONCOR 1.25", severity: "safe" },
+  "BC24039160": { generic: "Bisoprolol Fumarate", brand: "CONCOR 1.25", severity: "safe" },
+  "BC25533100": { generic: "Levothyroxine Sodium", brand: "ELTROXIN 50mcg", severity: "safe" },
+  "NC017521G0": { generic: "Imipramine Hcl", brand: "FRONIL", severity: "safe" },
+  "NC01752160": { generic: "Imipramine Hcl", brand: "FRONIL", severity: "safe" },
+  "A023521100": { generic: "Magnesium Oxide", brand: "MAGNESIUM OXIDE", severity: "safe" },
+  "A037697100": { generic: "Sennoside A+B", brand: "THROUGH", severity: "safe" },
+  "AC41577100": { generic: "Potassium Citrate", brand: "DESTONE 540MG", severity: "safe" },
+  "AC427541G0": { generic: "Benzbromarone", brand: "EURICON 50MG", severity: "safe" },
+  "AC42754160": { generic: "Benzbromarone", brand: "EURICON 50MG", severity: "safe" },
+  "AC62078121": { generic: "Calcium Polystyrene Sulfonate", brand: "KALIMATE POWDER", severity: "safe" },
+  "B020735429": { generic: "Hypromellose", brand: "ARTELAC EYE DROPS", severity: "safe" },
+  "B020735420": { generic: "Hypromellose", brand: "ARTELAC EYE DROPS", severity: "safe" },
+  "BC21628421": { generic: "Pirenoxine", brand: "KARY UNI", severity: "safe" },
+  "AB45993100": { generic: "Acetylcysteine", brand: "ACTEIN 600MG", severity: "safe" },
+  "AB15993100": { generic: "Acetylcysteine", brand: "ACTEIN 600MG", severity: "safe" },
+  "BC230161G0": { generic: "Fexofenadine Hydrochloride", brand: "ALLEGRA 60MG", severity: "safe" },
+  "BC23016160": { generic: "Fexofenadine Hydrochloride", brand: "ALLEGRA 60MG", severity: "safe" },
+  "BC26301443": { generic: "Indacaterol Maleate ; Glycopyrronium Bromide", brand: "Ultibro Breezhaler", severity: "safe" },
+  "A040833157": { generic: "Methylephedrine ; Chlorpheniramine ; Guaiacol", brand: "SECORINE SYRUP", severity: "safe" },
+  "AC60851457": { generic: "Azelastine ; Fluticasone", brand: "Dufanas Nasal Spray", severity: "safe" },
+  "A027040100": { generic: "Dexchlorpheniramine Maleate", brand: "DEX-CTM 2MG", severity: "safe" },
+  "AC19616329": { generic: "Betamethasone (Dipropionate)", brand: "BETAMETHASONE OINT", severity: "safe" }
+};
+
 function cleanGenericName(rawGeneric) {
   if (!rawGeneric) return "";
   
@@ -10,6 +46,11 @@ function cleanGenericName(rawGeneric) {
                    .replace(/\bHct\b/g, 'Hcl')
                    .replace(/\bTab\b/gi, 'Tablets')
                    .replace(/\bCap\b/gi, 'Capsules');
+
+  // 先清除開頭括號包覆的 ATC 英文分類（如 (Agents acting on the renin-angiotensin system) Valsartan）
+  cleaned = cleaned.replace(/^\([^\)]*[\)\s]*/, '')
+                   .replace(/^（[^）]*[）\s]*/, '')
+                   .replace(/^\[[^\]]*[\]\s]*/, '');
 
   const keywords = [];
   if (typeof proh !== 'undefined') keywords.push(...proh);
@@ -30,16 +71,21 @@ function cleanGenericName(rawGeneric) {
       const idx = rawLower.indexOf(kw, searchFrom);
       if (idx === -1) break;
       
-      // Skip matches that are inside parentheses (e.g. Sennoside A+B(Calcium) → 'calcium' is inside brackets)
-      // Count unmatched open parens before this position
+      // Skip matches that are strictly inside small parentheses (e.g. Sennoside A+B(Calcium) → 'calcium' is inside brackets)
       let depth = 0;
       for (let ci = 0; ci < idx; ci++) {
-        if (cleaned[ci] === '(' || cleaned[ci] === '（') depth++;
-        else if (cleaned[ci] === ')' || cleaned[ci] === '）') depth--;
+        if (cleaned[ci] === '(' || cleaned[ci] === '（' || cleaned[ci] === '[' || cleaned[ci] === '【') depth++;
+        else if (cleaned[ci] === ')' || cleaned[ci] === '）' || cleaned[ci] === ']' || cleaned[ci] === '】' || cleaned[ci] === '}') depth--;
       }
       if (depth > 0) {
-        searchFrom = idx + 1;
-        continue; // this match is inside parentheses — skip it
+        // 如果是 ATC 說明括號（含有 agents/system/preparations/acting 等），不要排除
+        const openParenIdx = Math.max(cleaned.lastIndexOf('(', idx), cleaned.lastIndexOf('（', idx), cleaned.lastIndexOf('[', idx));
+        const textBeforeKw = openParenIdx !== -1 ? cleaned.substring(openParenIdx, idx) : '';
+        const isAtcWrapper = /agent|acting|system|prep|use|treat|therap|class|inhibit|block/i.test(textBeforeKw);
+        if (!isAtcWrapper) {
+          searchFrom = idx + 1;
+          continue;
+        }
       }
       
       // Accept this match
@@ -66,9 +112,21 @@ function cleanGenericName(rawGeneric) {
   }
   
   const atcPrefixes = [
-    "psycholeptics", "ophthalmologicals", "antiepileptics", "lipid modifying",
-    "laxatives", "renin-angiotensin", "diabetes", "antipruritics", "urologicals",
-    "antihistamines", "corticosteroids", "nasal preparations", "anti-inflammatory"
+    "agents acting on the renin-angiotensin system",
+    "agents acting on the renin-angiotensin",
+    "renin-angiotensin system",
+    "renin-angiotensin",
+    "beta blocking agents",
+    "drugs for obstructive airway diseases",
+    "cough and cold preparations",
+    "nasal preparations",
+    "antithrombotic agents",
+    "thyroid therapy",
+    "lipid modifying agents",
+    "lipid modifying",
+    "psycholeptics", "psychoanaleptics", "ophthalmologicals", "antiepileptics",
+    "laxatives", "diabetes", "antipruritics", "urologicals",
+    "antihistamines", "corticosteroids", "anti-inflammatory"
   ];
   const cleanedLower = cleaned.toLowerCase();
   for (const prefix of atcPrefixes) {
@@ -76,7 +134,7 @@ function cleanGenericName(rawGeneric) {
     if (pIdx !== -1) {
       const endIdx = pIdx + prefix.length;
       let temp = cleaned.substring(endIdx).trim();
-      if (temp.startsWith('.') || temp.startsWith(')') || temp.startsWith('）') || temp.startsWith(';') || temp.startsWith('；')) {
+      if (temp.startsWith('.') || temp.startsWith(')') || temp.startsWith('）') || temp.startsWith(']') || temp.startsWith('}') || temp.startsWith(';') || temp.startsWith('；')) {
         temp = temp.substring(1).trim();
       }
       cleaned = temp;
@@ -84,6 +142,7 @@ function cleanGenericName(rawGeneric) {
     }
   }
   
+  cleaned = cleaned.replace(/^(?:system|agents?|preparations?|therapy|diseases?|derivatives?|use)[\)\]\s\.\,\;\:—\-]*/i, '').trim();
   cleaned = cleaned.replace(/^[Yy]\s+/, '').trim();
   return cleaned;
 }
@@ -294,7 +353,7 @@ function preprocessOcrText(rawText) {
       }
 
       // NHI Code Dictionary fallback: if generic is empty or garbled, look up by code
-      if ((!generic || generic.length < 3 || /^[A-Z\s]{1,4}$/.test(generic) || /EwEE|BEEE|TERF|ENE/i.test(generic)) && typeof NHI_CODE_LOOKUP !== 'undefined' && NHI_CODE_LOOKUP[code]) {
+      if ((!generic || generic.length < 3 || /^[A-Z\s]{1,4}$/.test(generic) || /EwEE|BEEE|TERF|ENE|system|agents|preparations/i.test(generic)) && typeof NHI_CODE_LOOKUP !== 'undefined' && NHI_CODE_LOOKUP[code]) {
         const entry = NHI_CODE_LOOKUP[code];
         generic = entry.generic || generic;
         if (!brand || brand.length < 3) brand = entry.brand || brand;
@@ -756,42 +815,6 @@ function parseAndCategorizeCloudPrescription(rawText) {
   }
 
   const tempItems = [];
-
-  // ── 健保代碼智慧補全字典（若 OCR 學名辨識亂碼或缺失時直接校正）───────────
-  const NHI_CODE_LOOKUP = {
-    "BC23374100": { generic: "Valsartan", brand: "DIOVAN 160MG", severity: "interactive" },
-    "AC60574100": { generic: "Tamsulosin Hcl", brand: "Tamlosin 0.4mg", severity: "interactive" },
-    "BC25413100": { generic: "Tamsulosin Hcl", brand: "Harnalidge OCAS 0.4mg", severity: "interactive" },
-    "BC22768100": { generic: "Risperidone", brand: "RISPERDAL Film Coated TABLET 2MG", severity: "interactive" },
-    "AC47486197": { generic: "Piracetam", brand: "HAMGO GRANULES 1200MG", severity: "safe" },
-    "AC373441G0": { generic: "Aspirin", brand: "BOKEY 100MG", severity: "safe" },
-    "AC37344160": { generic: "Aspirin", brand: "BOKEY 100MG", severity: "safe" },
-    "A043488100": { generic: "Sennoside A+B(Calcium)", brand: "SENNAPUR TABLETS", severity: "safe" },
-    "AC36350500": { generic: "Bisacodyl", brand: "BISADYL SUPPOSITORIES 10MG", severity: "safe" },
-    "BC240391G0": { generic: "Bisoprolol Fumarate", brand: "CONCOR 1.25", severity: "safe" },
-    "BC24039160": { generic: "Bisoprolol Fumarate", brand: "CONCOR 1.25", severity: "safe" },
-    "BC25533100": { generic: "Levothyroxine Sodium", brand: "ELTROXIN 50mcg", severity: "safe" },
-    "NC017521G0": { generic: "Imipramine Hcl", brand: "FRONIL", severity: "safe" },
-    "NC01752160": { generic: "Imipramine Hcl", brand: "FRONIL", severity: "safe" },
-    "A023521100": { generic: "Magnesium Oxide", brand: "MAGNESIUM OXIDE", severity: "safe" },
-    "A037697100": { generic: "Sennoside A+B", brand: "THROUGH", severity: "safe" },
-    "AC41577100": { generic: "Potassium Citrate", brand: "DESTONE 540MG", severity: "safe" },
-    "AC427541G0": { generic: "Benzbromarone", brand: "EURICON 50MG", severity: "safe" },
-    "AC42754160": { generic: "Benzbromarone", brand: "EURICON 50MG", severity: "safe" },
-    "AC62078121": { generic: "Calcium Polystyrene Sulfonate", brand: "KALIMATE POWDER", severity: "safe" },
-    "B020735429": { generic: "Hypromellose", brand: "ARTELAC EYE DROPS", severity: "safe" },
-    "B020735420": { generic: "Hypromellose", brand: "ARTELAC EYE DROPS", severity: "safe" },
-    "BC21628421": { generic: "Pirenoxine", brand: "KARY UNI", severity: "safe" },
-    "AB45993100": { generic: "Acetylcysteine", brand: "ACTEIN 600MG", severity: "safe" },
-    "AB15993100": { generic: "Acetylcysteine", brand: "ACTEIN 600MG", severity: "safe" },
-    "BC230161G0": { generic: "Fexofenadine Hydrochloride", brand: "ALLEGRA 60MG", severity: "safe" },
-    "BC23016160": { generic: "Fexofenadine Hydrochloride", brand: "ALLEGRA 60MG", severity: "safe" },
-    "BC26301443": { generic: "Indacaterol Maleate ; Glycopyrronium Bromide", brand: "Ultibro Breezhaler", severity: "safe" },
-    "A040833157": { generic: "Methylephedrine ; Chlorpheniramine ; Guaiacol", brand: "SECORINE SYRUP", severity: "safe" },
-    "AC60851457": { generic: "Azelastine ; Fluticasone", brand: "Dufanas Nasal Spray", severity: "safe" },
-    "A027040100": { generic: "Dexchlorpheniramine Maleate", brand: "DEX-CTM 2MG", severity: "safe" },
-    "AC19616329": { generic: "Betamethasone (Dipropionate)", brand: "BETAMETHASONE OINT", severity: "safe" }
-  };
 
   for (let idx = 0; idx < blocks.length; idx++) {
     const block = blocks[idx];
