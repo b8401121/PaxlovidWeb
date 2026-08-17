@@ -542,7 +542,7 @@ function initApp() {
   function getSeverityInfo(severity) {
     if (severity === 'contraindicated') return { tag: 'danger',  label: '⛔ 禁忌' };
     if (severity === 'interactive')     return { tag: 'warning', label: '⚠️ 潛在交互' };
-    if (severity === 'safe')            return { tag: 'safe',    label: '✅ 安全' };
+    if (severity === 'safe')            return { tag: 'safe',    label: '✅ 目前無交互作用報告' };
     return                                     { tag: 'caution', label: 'ℹ️ 未分類' };
   }
 
@@ -576,7 +576,7 @@ function initApp() {
     const sections = [
       { key: 'contraindicated', title: '⛔ 禁忌 / 建議避免 — 不可與 Paxlovid 併用',      cssClass: 'danger'  },
       { key: 'interactive',     title: '⚠️ 潛在交互作用 — 需調整劑量或加強監測',          cssClass: 'warning' },
-      { key: 'safe',            title: '✅ 安全 / 無顯著交互作用',                         cssClass: 'safe'    }
+      { key: 'safe',            title: '✅ 目前無交互作用報告',                           cssClass: 'safe'    }
     ];
 
     let anyResult = false;
@@ -778,7 +778,7 @@ function initApp() {
     out += 'Paxlovid有交互作用的藥(需減量或停藥8天):\n';
     cat.interactive.forEach(i => { out += i.cleanLineScreen + '\n'; });
     out += '\n--------------------------------------------------------------------------------\n\n';
-    out += '吃Paxlovid時無需停藥:\n';
+    out += '吃Paxlovid時無需停藥 (目前無交互作用報告):\n';
     cat.safe.forEach(i => { out += i.cleanLineScreen + '\n'; });
     out += '\n\nPaxlovid(口服抗病毒藥)只吃5天但藥效達8天，故有交互作用的西藥8天內減量或暫停，清冠一號也需暫停5天（以免導致腹瀉）。不可磨粉或泡水。\n';
     out += '本單張並沒比對自費藥和『最近1個月內尚未上傳到健保雲端』的健保新藥。\n\n';
