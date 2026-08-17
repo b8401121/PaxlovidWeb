@@ -1,5 +1,13 @@
 // ── 健保代碼智慧補全字典（若 OCR 學名辨識亂碼或缺失時直接校正）───────────
 const NHI_CODE_LOOKUP = {
+  "BC23373100": { generic: "Valsartan", brand: "DIOVAN 80MG", severity: "interactive" },
+  "AC57114100": { generic: "Amlodipine (Besylate)", brand: "Amlodipine 5mg", severity: "interactive" },
+  "AC262331G0": { generic: "Flunarizine (Hcl)", brand: "FLUNAZON CAPSULES 5MG", severity: "safe" },
+  "AC26233160": { generic: "Flunarizine (Hcl)", brand: "FLUNAZON CAPSULES 5MG", severity: "safe" },
+  "AC39087100": { generic: "Pentoxifylline", brand: "TRENFYLLINE S.R.F.C. 400MG", severity: "safe" },
+  "AB45412100": { generic: "Piracetam", brand: "NOOPOL F.C. TABLETS 1200MG", severity: "safe" },
+  "AC22209100": { generic: "Chlorzoxazone", brand: "ANROKIN TABLETS", severity: "safe" },
+  "AC57791100": { generic: "Famotidine", brand: "Famotidine 20mg", severity: "safe" },
   "BC14822100": { generic: "Amiodarone Hcl", brand: "CORDARONE TABLETS", severity: "contraindicated" },
   "BC187411G0": { generic: "Lorazepam", brand: "ATIVAN TABLETS 0.5MG", severity: "interactive" },
   "BC18741160": { generic: "Lorazepam", brand: "ATIVAN TABLETS 0.5MG", severity: "interactive" },
@@ -444,11 +452,11 @@ function preprocessOcrText(rawText) {
         finalSource = finalSource ? `${finalSource}（${visitType}）` : `（${visitType}）`;
       }
 
-      // NHI Code Dictionary fallback: if generic is empty, garbled, or contains Chinese, look up by code
-      if ((!generic || generic.length < 3 || /^[A-Z\s]{1,4}$/.test(generic) || /[\u4e00-\u9fa5]/.test(generic) || /EwEE|BEEE|TERF|ENE|system|agents|preparations/i.test(generic)) && typeof NHI_CODE_LOOKUP !== 'undefined' && NHI_CODE_LOOKUP[code]) {
+      // NHI Code Dictionary fallback: if generic is empty, garbled, or code exists in dictionary, canonicalize generic & brand
+      if (typeof NHI_CODE_LOOKUP !== 'undefined' && NHI_CODE_LOOKUP[code]) {
         const entry = NHI_CODE_LOOKUP[code];
         generic = entry.generic || generic;
-        if (!brand || brand.length < 3) brand = entry.brand || brand;
+        if (!brand || brand.length < 3 || /cl\s*P\s*9|ap\s*ss/i.test(brand)) brand = entry.brand || brand;
       }
 
       const reconstructed = `${finalSource}\t${generic}\t${code}\t${brand}\t${finalDate}`;
@@ -969,10 +977,9 @@ function parseAndCategorizeCloudPrescription(rawText) {
         const p10 = codeKey.substring(0, 10);
         if (NHI_CODE_LOOKUP[p10]) codeKey = p10;
       }
-      const isGarbled = !genericName || genericName.length < 3 || /^[A-Za-z]{1,2}$/.test(genericName) || /^[0-9\W]+$/.test(genericName) || /[\u4e00-\u9fa5]/.test(genericName) || /EwEExER|BEEEER|TERFERERE|ENE|stage 3|日 數|ramine Hcl|Psycholeptics|Psychoanaleptics|Ophthalmologicals|Antiepileptics|Laxatives|Urologicals|renin-angiotensin|作用在腎素|血管緊張素|安定劑|興奮劑|眼科|抗癲癇|泌尿|輕瀉|^A\+B|calcium/i.test(genericName);
-      if (NHI_CODE_LOOKUP[codeKey] && (isGarbled || !brandName || brandName.length < 3)) {
-        if (isGarbled) genericName = NHI_CODE_LOOKUP[codeKey].generic;
-        if (!brandName || brandName.length < 3) brandName = NHI_CODE_LOOKUP[codeKey].brand;
+      if (NHI_CODE_LOOKUP[codeKey]) {
+        genericName = NHI_CODE_LOOKUP[codeKey].generic;
+        if (!brandName || brandName.length < 3 || /cl\s*P\s*9|ap\s*ss/i.test(brandName)) brandName = NHI_CODE_LOOKUP[codeKey].brand;
       }
     } else {
       // 若無欄位被判定為健保碼，嘗試由整行正則擷取健保碼
