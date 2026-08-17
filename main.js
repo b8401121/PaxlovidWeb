@@ -621,9 +621,16 @@ function initApp() {
           if (raw) suggText = `<div class="drug-sugg">📋 ${raw}</div>`;
         }
 
-        // Checkbox (只勾最新，重複的藥不勾)
+        // Checkbox (僅禁忌與交互作用藥物提供列印勾選，安全藥物不顯示)
         const cbId = `cb_${item.id}`;
         const checked = item.selectedForPrint ? 'checked' : '';
+        const showPrintCheckbox = (sec.key !== 'safe' && item.severity !== 'safe');
+        const printCheckboxHtml = showPrintCheckbox ? `
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:0.85rem" title="勾選後列入報表">
+            <input type="checkbox" id="${cbId}" data-id="${item.id}" data-severity="${item.severity}" ${checked}>
+            列印
+          </label>
+        ` : '';
 
         card.innerHTML = `
           <div style="flex:1; min-width:0">
@@ -638,10 +645,7 @@ function initApp() {
           </div>
           <div style="display:flex;align-items:center;gap:10px;margin-left:12px;white-space:nowrap">
             <span class="tag ${tag}">${label}</span>
-            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:0.85rem" title="勾選後列入報表">
-              <input type="checkbox" id="${cbId}" data-id="${item.id}" data-severity="${item.severity}" ${checked}>
-              列印
-            </label>
+            ${printCheckboxHtml}
           </div>
         `;
         secDiv.appendChild(card);
