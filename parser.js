@@ -1,4 +1,28 @@
-// ── 健保代碼智慧補全字典（若 OCR 學名辨識亂碼或缺失時直接校正）───────────
+// ── 健保代碼智慧補全字典（結合手動優先覆蓋與官方 45,175 筆完整資料庫）───────────
+function getNhiCodeEntry(code) {
+  if (!code) return null;
+  const c = code.trim().toUpperCase();
+  // 1. 手動校正字典優先 (包含特定 severity 覆寫)
+  if (typeof NHI_CODE_LOOKUP !== 'undefined') {
+    if (NHI_CODE_LOOKUP[c]) return NHI_CODE_LOOKUP[c];
+    if (c.length >= 10 && NHI_CODE_LOOKUP[c.substring(0, 10)]) return NHI_CODE_LOOKUP[c.substring(0, 10)];
+  }
+  // 2. 全台灣官方健保藥品資料庫 (45,175 筆)
+  if (typeof window !== 'undefined' && window.NHI_DB) {
+    const raw = window.NHI_DB[c] || (c.length >= 10 ? window.NHI_DB[c.substring(0, 10)] : null);
+    if (raw && Array.isArray(raw)) {
+      return {
+        generic: raw[0] || "",
+        brand: raw[1] || ""
+      };
+    }
+  }
+  return null;
+}
+if (typeof window !== 'undefined') {
+  window.getNhiCodeEntry = getNhiCodeEntry;
+}
+
 const NHI_CODE_LOOKUP = {
   "BC23373100": { generic: "Valsartan", brand: "DIOVAN 80MG", severity: "interactive" },
   "AC57114100": { generic: "Amlodipine (Besylate)", brand: "Amlodipine 5mg", severity: "interactive" },
@@ -469,8 +493,8 @@ function preprocessOcrText(rawText) {
       let finalSource = "";
 
       // NHI Code Dictionary fallback: if generic is empty, garbled, or code exists in dictionary, canonicalize generic & brand
-      if (typeof NHI_CODE_LOOKUP !== 'undefined' && NHI_CODE_LOOKUP[code]) {
-        const entry = NHI_CODE_LOOKUP[code];
+      const entry = typeof getNhiCodeEntry === 'function' ? getNhiCodeEntry(code) : (typeof NHI_CODE_LOOKUP !== 'undefined' ? NHI_CODE_LOOKUP[code] : null);
+      if (entry) {
         generic = entry.generic || generic;
         brand = entry.brand || "";
       } else {
@@ -1142,8 +1166,32 @@ function parseAndCategorizeCloudPrescription(rawText) {
     }
 
     const matchCode = lineCode ? (lineCode.match(/([A-Za-z]{1,2}\d{5,10}[A-Za-z0-9]{0,3})/) || [null, ''])[1].toUpperCase() : '';
-    const codeLookupKey = matchCode && !NHI_CODE_LOOKUP[matchCode] && matchCode.length >= 10 ? matchCode.substring(0, 10) : matchCode;
-    const standardGeneric = codeLookupKey && NHI_CODE_LOOKUP[codeLookupKey] ? NHI_CODE_LOOKUP[codeLookupKey].generic : '';
+    const entry = matchCode && typeof getNhiCodeEntry === 'function' ? getNhiCodeEntry(matchCode) : null;
+    const standardGeneric = entry ? entry.generic : '';
+    const standardBrand = entry ? entry.brand : '';
+    if (!brandName && standardBrand) brandName = standardBrand;
+    if (!genericName && standardGeneric) genericName = standardGeneric;
+
+    // 複方藥物成分二次交互作用自動檢核（若單一成分未檢出）
+    if (entry && entry.generic && (severity === 'unknown' || severity === 'safe')) {
+      const parts = entry.generic.split(/[;\+]/).map(p => p.trim()).filter(Boolean);
+      for (const p of parts) {
+        const pLower = p.toLowerCase();
+        for (const kw of (typeof proh !== 'undefined' ? proh : [])) {
+          if (pLower.includes(kw.toLowerCase())) { severity = 'contraindicated'; matchedKw = kw; break; }
+        }
+        if (severity === 'contraindicated') break;
+        for (const kw of (typeof dont !== 'undefined' ? dont : [])) {
+          if (pLower.includes(kw.toLowerCase())) { severity = 'contraindicated'; matchedKw = kw; break; }
+        }
+        if (severity === 'contraindicated') break;
+        for (const kw of (typeof pote !== 'undefined' ? pote : [])) {
+          if (pLower.includes(kw.toLowerCase())) { severity = 'interactive'; matchedKw = kw; break; }
+        }
+        if (severity === 'interactive') break;
+      }
+    }
+
     const rawKey = (standardGeneric || matchedKw || genericName || brandName || blockLower).toLowerCase();
     const drugKey = rawKey.replace(/\s*[\(\（].*?[\)\）]/g, '')
                           .replace(/\s+(calcium|besylate|mesylate|hcl|hydrochloride|sodium|potassium|tartrate|fumarate|maleate|succinate|sulfate|nitrate|phosphate|citrate|acetate)\b/gi, '')

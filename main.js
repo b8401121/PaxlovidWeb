@@ -514,13 +514,13 @@ function initApp() {
   });
 
   function sanitizeBrandName(rawBrand, codeDisplay) {
-    if (!rawBrand) return '';
-    const s = rawBrand.trim();
-    // 1. 若健保代碼字典中有明確標準商品名，優先使用
-    if (codeDisplay && typeof NHI_CODE_LOOKUP !== 'undefined') {
-      const dict = NHI_CODE_LOOKUP[codeDisplay] || (codeDisplay.length >= 10 ? NHI_CODE_LOOKUP[codeDisplay.substring(0, 10)] : null);
+    // 1. 若有代碼且健保代碼字典中有明確標準商品名，優先使用
+    if (codeDisplay) {
+      const dict = typeof getNhiCodeEntry === 'function' ? getNhiCodeEntry(codeDisplay) : ((typeof NHI_CODE_LOOKUP !== 'undefined') ? (NHI_CODE_LOOKUP[codeDisplay] || (codeDisplay.length >= 10 ? NHI_CODE_LOOKUP[codeDisplay.substring(0, 10)] : null)) : null);
       if (dict && dict.brand) return dict.brand;
     }
+    if (!rawBrand) return '';
+    const s = rawBrand.trim();
     // 2. 嚴格過濾 OCR 殘缺雜訊（如純劑量、怪符號、短字母碎片、OCR 亂碼）
     if (s.length < 3) return '';
     if (/^(\.?\d+[\/\.\d]*(mg|mcg|g|%)?(\s*(hs|bid|tid|qd|qn|po|pc|tab|cap|vial|amp)\b)*[\s\d]*)$/i.test(s)) return '';
@@ -623,7 +623,7 @@ function initApp() {
         const dateStr     = item.visitDate    ? item.visitDate            : '';
         const codeMatch   = item.originalLine ? item.originalLine.match(/\b([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})\b/) : null;
         const codeDisplay = item.hasCode && codeMatch ? codeMatch[1].toUpperCase() : '';
-        const dictEntry   = (codeDisplay && typeof NHI_CODE_LOOKUP !== 'undefined') ? (NHI_CODE_LOOKUP[codeDisplay] || (codeDisplay.length >= 10 ? NHI_CODE_LOOKUP[codeDisplay.substring(0, 10)] : null)) : null;
+        const dictEntry   = (codeDisplay && typeof getNhiCodeEntry === 'function') ? getNhiCodeEntry(codeDisplay) : ((codeDisplay && typeof NHI_CODE_LOOKUP !== 'undefined') ? (NHI_CODE_LOOKUP[codeDisplay] || (codeDisplay.length >= 10 ? NHI_CODE_LOOKUP[codeDisplay.substring(0, 10)] : null)) : null);
         const genericStr  = (dictEntry && dictEntry.generic) || item.genericName || '';
         const rawBrand    = (dictEntry && dictEntry.brand)   || item.brandName   || '';
         const brandStr    = sanitizeBrandName(rawBrand, codeDisplay);
@@ -867,7 +867,7 @@ function initApp() {
       // 健保代碼與字典標準名稱補全
       const codeMatch = item.originalLine ? item.originalLine.match(/\b([A-Za-z]{1,3}\d{5,10}[A-Za-z0-9]{0,3})\b/) : null;
       const codeDisplay = item.hasCode && codeMatch ? codeMatch[1].toUpperCase() : (d.code && /^[A-Za-z]{1,2}\d{5,10}/.test(d.code) ? d.code.toUpperCase() : '');
-      const dictEntry = (codeDisplay && typeof NHI_CODE_LOOKUP !== 'undefined') ? (NHI_CODE_LOOKUP[codeDisplay] || (codeDisplay.length >= 10 ? NHI_CODE_LOOKUP[codeDisplay.substring(0, 10)] : null)) : null;
+      const dictEntry = (codeDisplay && typeof getNhiCodeEntry === 'function') ? getNhiCodeEntry(codeDisplay) : ((codeDisplay && typeof NHI_CODE_LOOKUP !== 'undefined') ? (NHI_CODE_LOOKUP[codeDisplay] || (codeDisplay.length >= 10 ? NHI_CODE_LOOKUP[codeDisplay.substring(0, 10)] : null)) : null);
 
       const generic  = (dictEntry && dictEntry.generic) || item.genericName || (d.code && !/^[A-Za-z]{1,2}\d{5,10}/.test(d.code) ? d.code : '') || '';
       const rawBrand = (dictEntry && dictEntry.brand)   || item.brandName   || (d.usage && !/^\.?\d+mg/i.test(d.usage) ? d.usage : '') || '';
