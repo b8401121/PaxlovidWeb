@@ -208,6 +208,20 @@ function preprocessOcrText(rawText) {
       return p1 + '7' + p2;
     });
 
+    // 修復健保碼中間被 OCR 插入空格（例如 BC240391 G0 -> BC240391G0, BC23374 100 -> BC23374100）
+    line = line.replace(/\b([A-Za-z]{1,2}\d{2,7})\s+([A-Za-z0-9]{2,6})\b/g, (m, p1, p2) => {
+      if ((p1.length + p2.length) >= 9 && (p1.length + p2.length) <= 11) {
+        return p1 + p2;
+      }
+      return m;
+    });
+    line = line.replace(/\b([A-Za-z]{1,2}\d{6,8})\s+([A-Za-z0-9]{1,3})\b/g, (m, p1, p2) => {
+      if ((p1.length + p2.length) >= 9 && (p1.length + p2.length) <= 11) {
+        return p1 + p2;
+      }
+      return m;
+    });
+
     // 修復首字元被誤讀：8C→BC, 0D→OD, 1BC→IBC
     line = line.replace(/([^A-Za-z]|^)8([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})/g, '$1B$2');
     line = line.replace(/([^A-Za-z]|^)0([A-Za-z]\d{5,9}[A-Za-z0-9]{0,3})/g, '$1O$2');
@@ -217,7 +231,7 @@ function preprocessOcrText(rawText) {
     line = line.replace(/([A-Za-z]{1,2})((?=[0-9A-Za-z]{6,10})[0-9A-Za-z]+)/g, (match, prefix, rest) => {
       const digitCount = (rest.match(/\d/g) || []).length;
       const letterCount = (rest.match(/[A-Za-z]/g) || []).length;
-      if (digitCount >= 5 && letterCount >= 1 && letterCount <= 4 && (prefix.length + rest.length) <= 12) {
+      if (digitCount >= 4 && letterCount >= 1 && letterCount <= 4 && (prefix.length + rest.length) <= 12) {
         let fixedRest = "";
         for (let i = 0; i < rest.length; i++) {
           let c = rest[i];
@@ -388,20 +402,15 @@ function preprocessOcrText(rawText) {
         for (let j = buffer.length - 1; j >= 0; j--) {
           const bLine = buffer[j].trim();
           if (!bLine) continue;
-          // 排除常見診斷或院所別
-          const isDiag = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓/.test(bLine);
-          const isMeta = /^(門診|住診|藥局|\d+|[A-Z]\d{3,4})$/.test(bLine);
-          if (!isDiag && !isMeta) {
-            let candidateGeneric = bLine;
-            const cCloseIdx = Math.max(candidateGeneric.lastIndexOf('）'), candidateGeneric.lastIndexOf(')'));
-            if (cCloseIdx !== -1 && cCloseIdx < candidateGeneric.length - 1) {
-              candidateGeneric = candidateGeneric.substring(cCloseIdx + 1).trim();
-            }
-            const cleanedCandidate = cleanGenericName(candidateGeneric);
-            if (cleanedCandidate && cleanedCandidate.length >= 3 && /^[A-Za-z]/.test(cleanedCandidate)) {
-              generic = cleanedCandidate;
-              break;
-            }
+          let candidateGeneric = bLine;
+          const cCloseIdx = Math.max(candidateGeneric.lastIndexOf('）'), candidateGeneric.lastIndexOf(')'), candidateGeneric.lastIndexOf(']'));
+          if (cCloseIdx !== -1 && cCloseIdx < candidateGeneric.length - 1) {
+            candidateGeneric = candidateGeneric.substring(cCloseIdx + 1).trim();
+          }
+          const cleanedCandidate = cleanGenericName(candidateGeneric);
+          if (cleanedCandidate && cleanedCandidate.length >= 3 && /^[A-Za-z]/.test(cleanedCandidate)) {
+            generic = cleanedCandidate;
+            break;
           }
         }
       }
@@ -460,7 +469,25 @@ function preprocessOcrText(rawText) {
     }
   }
 
-  // 結尾未成行的純垃圾文字（劑量、頻次、代碼等）不加入輸出，避免產生零碎無效卡片
+  // 檢查未被 consume 的 buffer 中是否有遺漏辨識的已知藥物行
+  if (buffer.length > 0) {
+    for (const bLine of buffer) {
+      const bLower = bLine.toLowerCase();
+      for (const kw of Object.keys(BRAND_OR_GENERIC_TO_CODE)) {
+        if (bLower.includes(kw)) {
+          const rescuedCode = BRAND_OR_GENERIC_TO_CODE[kw];
+          const entry = NHI_CODE_LOOKUP[rescuedCode];
+          if (entry) {
+            const dM = bLine.match(/(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/);
+            const rDate = dM ? dM[1] : "";
+            reconstructedLines.push(`\t${entry.generic}\t${rescuedCode}\t${entry.brand}\t${rDate}`);
+          }
+          break;
+        }
+      }
+    }
+  }
+
   return reconstructedLines.join('\n');
 }
 
