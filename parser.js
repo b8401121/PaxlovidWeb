@@ -339,7 +339,7 @@ function preprocessOcrText(rawText) {
         const provMatch = bLine.match(/\b(\d[A-Za-z0-9]{9})\b/);
         if (provMatch && !providerCode) {
           providerCode = provMatch[1];
-        } else if ((bLine === "門診" || bLine === "住診" || bLine === "藥局") && !visitType) {
+        } else if ((bLine === "門診" || bLine === "住診" || bLine === "藥局" || bLine === "急診") && !visitType) {
           visitType = bLine;
         } else if (!source) {
           // ── 嚴格驗證診所名稱 ────────────────────────────────────────────────
@@ -397,7 +397,7 @@ function preprocessOcrText(rawText) {
         }
       }
       if (!visitType) {
-        const vtMatch = leftPart.match(/門診|住診|藥局/);
+        const vtMatch = leftPart.match(/門診|住診|藥局|急診/);
         if (vtMatch) {
           visitType = vtMatch[0];
         }
@@ -411,7 +411,7 @@ function preprocessOcrText(rawText) {
           beforeAnchor = leftPart.split(visitType)[0].trim();
         }
         if (beforeAnchor) {
-          const stripped = beforeAnchor.replace(/門診|住診|藥局/g, ' ').replace(/\d+/g, ' ').trim();
+          const stripped = beforeAnchor.replace(/門診|住診|藥局|急診/g, ' ').replace(/\d+/g, ' ').trim();
           const chunkMatch = stripped.match(/[\u4e00-\u9fa5]+/g);
           if (chunkMatch && chunkMatch.length > 0) {
             const candidate = chunkMatch.join('').trim();
@@ -886,7 +886,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
   rawText = preprocessOcrText(rawText);
   const contraindicated = [];
   const interactive = [];
-  const safe = [];
+  const safeList = [];
   const unknown = [];
 
   if (!rawText || !rawText.trim()) {
@@ -960,27 +960,30 @@ function parseAndCategorizeCloudPrescription(rawText) {
   const codeRe = /^[A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3}$/;
   const dateRe = /^\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2}/;
 
-  // ── 來源預掃描 ─────────────────────────────────────────────────────────────
+  // ── 來源與就醫別預掃描 ──────────────────────────────────────────────────────
   // 雲端藥歷每筆藥記錄為 4 行一組：
   //   A: {序號}\t{院所名稱}   → matches /^\d+\t/
-  //   B: {門診|住診|藥局}
+  //   B: {門診|住診|藥局|急診}
   //   C: {院所代碼}\t{主診斷}
   //   D: {ATC3}\t...\t{藥品代碼}\t{藥品名稱}\t{就醫日期}\t...   ← 含藥品代碼
-  // 我們往回找最近的 A 行來得知來源
+  // 我們往回找最近的 A 行來得知來源，並建立院所代碼與名稱對照表
   const itemLineRe = /^(\d{1,3})\t(.+)/;   // 序號只有 1-3 位數，院所代碼是 10 位數不會誤判
-  const visitTypeRe = /^(門診|住診|藥局)$/;
+  const visitTypeRe = /^(門診|住診|藥局|急診)$/;
   const sourceMap = []; // sourceMap[idx] = { source, visitType }
+  const providerMap = {}; // 院所代碼 -> 院所名稱 對照表
+  const blockProviders = new Array(blocks.length).fill(null);
   let lastSource = '';
   let lastVisitType = '';
+  
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i].trim();
     const m = b.match(itemLineRe);
     if (m) { lastSource = m[2].trim(); }
     if (visitTypeRe.test(b)) { lastVisitType = b.trim(); }
 
-    // ── OCR 重組行：第一欄格式為「院所名稱（門診/住診/藥局）」
+    // ── OCR 重組行：第一欄格式為「院所名稱（門診/住診/藥局/急診）」
     const firstCol = b.split('\t')[0];
-    const embeddedSrcMatch = firstCol.match(/^(.+?)（(門診|住診|藥局)）$/);
+    const embeddedSrcMatch = firstCol.match(/^(.+?)（(門診|住診|藥局|急診)）$/);
     if (embeddedSrcMatch) {
       lastSource = embeddedSrcMatch[1].trim();
       lastVisitType = embeddedSrcMatch[2].trim();
@@ -996,6 +999,16 @@ function parseAndCategorizeCloudPrescription(rawText) {
       const isMostlyEnglish = b.replace(/[^A-Za-z]/g, '').length / b.length > 0.5;
       if (hasChinese && isShort && !isDiagnosis && !isMostlyEnglish) {
         lastSource = b;
+      }
+    }
+
+    // ── 建立院所代碼與名稱對照表 ──────────────────────────────────────────────
+    const provMatch = b.match(/^([0-9A-Za-z]{10})\t/);
+    if (provMatch) {
+      const provCode = provMatch[1];
+      blockProviders[i] = provCode;
+      if (lastSource) {
+        providerMap[provCode] = lastSource;
       }
     }
 
@@ -1068,7 +1081,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
         }
       }
       // 若無標準健保碼，嘗試檢查第 0 或第 1 欄是否為學名/商品名
-      if (!genericName && cols.length >= 2 && /^[A-Za-z]/.test(cols[0]) && cols[0].length >= 3 && !/^(門診|住診|藥局|\d+|[A-Z]\d{2,4})$/.test(cols[0])) {
+      if (!genericName && cols.length >= 2 && /^[A-Za-z]/.test(cols[0]) && cols[0].length >= 3 && !/^(門診|住診|藥局|急診|\d+|[A-Z]\d{2,4})$/.test(cols[0])) {
         genericName = cols[0];
         brandName = cols[1];
       }
@@ -1245,7 +1258,58 @@ function parseAndCategorizeCloudPrescription(rawText) {
       }
     }
     
-    const srcInfo = sourceMap[idx] || { source: '', visitType: '' };
+    // 往回尋找最匹配的院所名稱與就醫別（雙向補全與對照）
+    let finalSource = "";
+    let finalVisitType = "";
+
+    for (let j = idx - 1; j >= 0; j--) {
+      const bLine = blocks[j].trim();
+      
+      // 1. 尋找院所名稱
+      if (!finalSource) {
+        const provCode = blockProviders[j];
+        if (provCode && providerMap[provCode]) {
+          finalSource = providerMap[provCode];
+        } else {
+          const m = bLine.match(itemLineRe);
+          if (m) {
+            finalSource = m[2].trim();
+          } else {
+            const embeddedMatch = bLine.split('\t')[0].match(/^(.+?)（(門診|住診|藥局|急診)）$/);
+            if (embeddedMatch) {
+              finalSource = embeddedMatch[1].trim();
+            } else if (!bLine.includes('\t') && !visitTypeRe.test(bLine)) {
+              const hasChinese = /[\u4e00-\u9fa5]/.test(bLine);
+              const isShort = bLine.length >= 2 && bLine.length <= 12;
+              const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明/.test(bLine);
+              const isMostlyEnglish = bLine.replace(/[^A-Za-z]/g, '').length / bLine.length > 0.5;
+              if (hasChinese && isShort && !isDiagnosis && !isMostlyEnglish) {
+                finalSource = bLine;
+              }
+            }
+          }
+        }
+      }
+      
+      // 2. 尋找就醫別
+      if (!finalVisitType) {
+        if (visitTypeRe.test(bLine)) {
+          finalVisitType = bLine;
+        } else {
+          const embeddedMatch = bLine.split('\t')[0].match(/^(.+?)（(門診|住診|藥局|急診)）$/);
+          if (embeddedMatch) {
+            finalVisitType = embeddedMatch[2].trim();
+          }
+        }
+      }
+
+      if (finalSource && finalVisitType) {
+        break;
+      }
+    }
+
+    if (!finalSource && sourceMap[idx]) finalSource = sourceMap[idx].source;
+    if (!finalVisitType && sourceMap[idx]) finalVisitType = sourceMap[idx].visitType;
 
     tempItems.push({
       id: `block_${idx}`,
@@ -1260,8 +1324,8 @@ function parseAndCategorizeCloudPrescription(rawText) {
       visitDate,
       dateKey,
       drugKey,
-      source: srcInfo.source,
-      visitType: srcInfo.visitType
+      source: finalSource,
+      visitType: finalVisitType
     });
   }
 
@@ -1317,7 +1381,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
     } else if (parsedItem.severity === "interactive") {
       interactive.push(parsedItem);
     } else if (parsedItem.severity === "safe") {
-      safe.push(parsedItem);
+      safeList.push(parsedItem);
     } else {
       unknown.push(parsedItem);
     }
@@ -1335,7 +1399,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
   return {
     contraindicated,
     interactive,
-    safe,
+    safe: safeList,
     unknown,
     allItems
   };
