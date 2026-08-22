@@ -383,46 +383,6 @@ function preprocessOcrText(rawText) {
       const dateMatch = line.match(/(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/);
       const date = dateMatch ? dateMatch[1] : "";
 
-      let source = "";
-      let visitType = "";
-      let providerCode = "";
-
-      for (let j = buffer.length - 1; j >= 0; j--) {
-        const bLine = buffer[j];
-        // OCR 可能在中文字之間插入空格（如「藥 局」），先壓縮空格再比對
-        const bLineNorm = bLine.replace(/\s+/g, '');
-        const provMatch = bLine.match(/\b([0-9ILOilo|\/][A-Za-z0-9\/]{8,9})\b/);
-        if (provMatch && !providerCode) {
-          const pC = provMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0').replace(/\//g, '7');
-          if (pC.length === 10) {
-            providerCode = pC;
-          }
-        } else if (/^(門診|住診|藥局|急診)$/.test(bLineNorm)) {
-          if (!visitType) visitType = bLineNorm;
-        } else if (!source) {
-          let candidate = bLine.replace(/^\d+\s+/, '').trim(); // 去掉前置序號
-          candidate = candidate.replace(/^[\(\)（）\s\.\-]+|[\(\)（）\s\.\-]+$/g, '').trim();
-          if (isValidClinicName(candidate)) {
-            source = candidate;
-          } else {
-            // OCR 可能把院所名稱中的文字拆開（如「烏 藥 局」），嘗試合併後比對
-            const normCandidate = candidate.replace(/\s+/g, '');
-            const normParts = normCandidate.match(/[\u4e00-\u9fa5]{2,}/g);
-            if (normParts) {
-              for (const np of normParts) {
-                if (isValidClinicName(np)) {
-                  source = np;
-                  break;
-                }
-              }
-            }
-          }
-        }
-      }
-      if (!source && providerCode && (typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[providerCode])) {
-        source = window.PROVIDER_DB[providerCode];
-      }
-
       let leftPart = "";
       let rightPart = "";
       if (!isKeywordFallback && line.includes(code)) {
@@ -450,70 +410,6 @@ function preprocessOcrText(rawText) {
 
       let generic = "";
       let searchStr = leftPart;
-
-      // ── 檢查 leftPart 是否含有院所代碼與就醫別（單列 OCR 模式）────────────────────
-      if (!providerCode) {
-        const provMatch = leftPart.match(/\b([0-9ILOilo|\/][A-Za-z0-9\/]{8,9})\b/);
-        if (provMatch) {
-          const pC = provMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0').replace(/\//g, '7');
-          if (pC.length === 10) {
-            providerCode = pC;
-          }
-        }
-      }
-      if (!visitType) {
-        // OCR 可能把「藥局」辨識成「藥 局」，需要用去空格後的字串匹配
-        const leftNorm = leftPart.replace(/\s+/g, '');
-        const vtMatch = leftNorm.match(/門診|住診|藥局|急診/);
-        if (vtMatch) {
-          visitType = vtMatch[0];
-        }
-      }
-      // ── 若 buffer + leftPart 都沒找到院所代碼，嘗試從 rightPart 掃描（代碼在藥品碼右側同一行時）─
-      if (!providerCode && rightPart) {
-        const rpProvMatch = rightPart.match(/\b([0-9ILOilo|\/][A-Za-z0-9\/]{8,9})\b/);
-        if (rpProvMatch) {
-          const pC = rpProvMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0').replace(/\//g, '7');
-          if (pC.length === 10) {
-            providerCode = pC;
-          }
-        }
-      }
-
-      // 優先從本行直接擷取符合醫療機構特徵的院所名稱（如「13 台北長庚 ...」）
-      const stripped = leftPart.replace(/^\d+\s+/, '');
-      const chineseWords = stripped.match(/[\u4e00-\u9fa5]+/g);
-      if (chineseWords) {
-        for (const word of chineseWords) {
-          if (isValidClinicName(word)) {
-            source = normalizeHospitalName(word);
-            break;
-          }
-        }
-      }
-      // ── 若還沒找到院所名稱，嘗試將 OCR 拆開的中文字合併後再試（如「烏 藥 局」→「烏藥局」）──────
-      if (!source) {
-        const strippedNorm = stripped.replace(/\s+/g, '');
-        // 抓所有連續中文字段（去空格後）
-        const normChinese = strippedNorm.match(/[\u4e00-\u9fa5]{2,}/g);
-        if (normChinese) {
-          for (const w of normChinese) {
-            if (isValidClinicName(w)) {
-              source = normalizeHospitalName(w);
-              break;
-            }
-          }
-        }
-      }
-      if (providerCode && typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[providerCode]) {
-        source = window.PROVIDER_DB[providerCode];
-      }
-
-      if (providerCode && leftPart.includes(providerCode)) {
-        searchStr = leftPart.split(providerCode)[1].trim();
-      } else if (visitType && leftPart.includes(visitType)) {
-        searchStr = leftPart.split(visitType)[1].trim();
-      }
 
       let lastChineseIdx = -1;
       for (let k = 0; k < searchStr.length; k++) {
@@ -553,11 +449,6 @@ function preprocessOcrText(rawText) {
         }
       }
 
-      // ── 檢查診所名稱是否誤抓到診斷詞（如「能 性 (原 發 性 )」）───────────────
-      if (source && /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|能\s*性/.test(source)) {
-        source = "";
-      }
-
       // ── 如果同一行中找不到日期，嘗試從右側或是歷史緩衝尋找日期 ──────────────
       let finalDate = date;
       if (!finalDate) {
@@ -568,35 +459,6 @@ function preprocessOcrText(rawText) {
             break;
           }
         }
-      }
-
-      // 如果本行有明確識別出新的院所名稱，且與先前的持久名稱不同，重置先前殘留的持久機構代碼，避免溢位覆蓋
-      if (source && runningSource && source !== runningSource) {
-        runningProviderCode = "";
-      }
-
-      if (providerCode) runningProviderCode = providerCode;
-      if (visitType) runningVisitType = visitType;
-      if (source) runningSource = source;
-
-      const curProviderCode = providerCode || runningProviderCode;
-      const curVisitType = visitType || runningVisitType || "門診";
-      const curSource = source || runningSource;
-
-      // OCR 辨識：優先使用本列直接辨識到的院所名稱 (source)，次之使用本列代碼或持久代碼
-      let finalSource = "";
-      if (source) {
-        finalSource = `${normalizeHospitalName(source)}（${curVisitType}）`;
-      } else if (providerCode && typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[providerCode]) {
-        const clinicName = window.PROVIDER_DB[providerCode];
-        finalSource = `${clinicName}（${curVisitType}）`;
-      } else if (curProviderCode && typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[curProviderCode]) {
-        const clinicName = window.PROVIDER_DB[curProviderCode];
-        finalSource = `${clinicName}（${curVisitType}）`;
-      } else if (curSource) {
-        finalSource = `${normalizeHospitalName(curSource)}（${curVisitType}）`;
-      } else {
-        finalSource = `—（${curVisitType}）`;
       }
 
       // NHI Code Dictionary fallback: if generic is empty, garbled, or code exists in dictionary, canonicalize generic & brand
@@ -611,7 +473,8 @@ function preprocessOcrText(rawText) {
         }
       }
 
-      const reconstructed = `${finalSource}\t${generic}\t${code}\t${brand}\t${finalDate}`;
+      // OCR 模式不填寫院所，維持簡潔與高精確度
+      const reconstructed = `\t${generic}\t${code}\t${brand}\t${finalDate}`;
       reconstructedLines.push(reconstructed);
       
       buffer = [];
