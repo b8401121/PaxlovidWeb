@@ -354,10 +354,11 @@ function preprocessOcrText(rawText) {
           candidate = candidate.replace(/^[\(\)（）\s\.\-]+|[\(\)（）\s\.\-]+$/g, '').trim();
           const hasChinese = /[\u4e00-\u9fa5]/.test(candidate);
           const isShort = candidate.length >= 2 && candidate.length <= 12;
-          const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性|乳房|女性|男性|部位/.test(candidate);
+          const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性|乳房|女性|男性|部位|劑|藥|液|類|抗|固醇|疾患|二尖瓣|風濕|分泌|胃酸|機能|失調|腹痛|痛|昏|暈|衰竭|高血脂|糖尿|心臟|冠狀|胃潰瘍|氣喘|支氣管/.test(candidate);
+          const isHeaderJunk = /項次|來源|主診斷|ATC3|複方|註記|成分|藥品|代碼|名稱|就醫|日期|慢連箋|領藥|住院|規格|用法|用量|給藥|日數|試算|單筆|餘藥|餘日|餘\s*人|筆\s*餘/.test(candidate);
           const isMostlyEnglish = (candidate.replace(/[^A-Za-z]/g, '').length / candidate.length) > 0.5;
           const isJunkLine = /^[0-9\s\.\-\|\/\\@#\*\(\)（）]+$/.test(candidate);
-          if (hasChinese && isShort && !isDiagnosis && !isMostlyEnglish && !isJunkLine) {
+          if (hasChinese && isShort && !isDiagnosis && !isHeaderJunk && !isMostlyEnglish && !isJunkLine) {
             source = candidate;
           }
         }
@@ -416,7 +417,7 @@ function preprocessOcrText(rawText) {
         const chineseWords = stripped.match(/[\u4e00-\u9fa5]+/g);
         if (chineseWords) {
           for (const word of chineseWords) {
-            if (word.length >= 2 && word.length <= 12 && !/病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性|乳房|女性|男性|部位|劑|藥|液|類|抗|固醇/.test(word)) {
+            if (word.length >= 2 && word.length <= 12 && !/病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性|乳房|女性|男性|部位|劑|藥|液|類|抗|固醇|疾患|二尖瓣|風濕|分泌|胃酸|機能|失調|腹痛|痛|昏|暈|衰竭|高血脂|糖尿|心臟|冠狀|胃潰瘍|氣喘|支氣管/.test(word) && !/項次|來源|主診斷|ATC3|複方|註記|成分|藥品|代碼|名稱|就醫|日期|慢連箋|領藥|住院|規格|用法|用量|給藥|日數|試算|單筆|餘藥|餘日|餘\s*人|筆\s*餘/.test(word)) {
               source = word;
               break;
             }
