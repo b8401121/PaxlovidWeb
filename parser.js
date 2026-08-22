@@ -389,19 +389,33 @@ function preprocessOcrText(rawText) {
 
       for (let j = buffer.length - 1; j >= 0; j--) {
         const bLine = buffer[j];
+        // OCR 可能在中文字之間插入空格（如「藥 局」），先壓縮空格再比對
+        const bLineNorm = bLine.replace(/\s+/g, '');
         const provMatch = bLine.match(/\b([0-9ILOilo|\/][A-Za-z0-9\/]{8,9})\b/);
         if (provMatch && !providerCode) {
           const pC = provMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0').replace(/\//g, '7');
           if (pC.length === 10) {
             providerCode = pC;
           }
-        } else if (bLine === "門診" || bLine === "住診" || bLine === "藥局" || bLine === "急診") {
-          if (!visitType) visitType = bLine;
+        } else if (/^(門診|住診|藥局|急診)$/.test(bLineNorm)) {
+          if (!visitType) visitType = bLineNorm;
         } else if (!source) {
           let candidate = bLine.replace(/^\d+\s+/, '').trim(); // 去掉前置序號
           candidate = candidate.replace(/^[\(\)（）\s\.\-]+|[\(\)（）\s\.\-]+$/g, '').trim();
           if (isValidClinicName(candidate)) {
             source = candidate;
+          } else {
+            // OCR 可能把院所名稱中的文字拆開（如「烏 藥 局」），嘗試合併後比對
+            const normCandidate = candidate.replace(/\s+/g, '');
+            const normParts = normCandidate.match(/[\u4e00-\u9fa5]{2,}/g);
+            if (normParts) {
+              for (const np of normParts) {
+                if (isValidClinicName(np)) {
+                  source = np;
+                  break;
+                }
+              }
+            }
           }
         }
       }
@@ -448,9 +462,21 @@ function preprocessOcrText(rawText) {
         }
       }
       if (!visitType) {
-        const vtMatch = leftPart.match(/門診|住診|藥局|急診/);
+        // OCR 可能把「藥局」辨識成「藥 局」，需要用去空格後的字串匹配
+        const leftNorm = leftPart.replace(/\s+/g, '');
+        const vtMatch = leftNorm.match(/門診|住診|藥局|急診/);
         if (vtMatch) {
           visitType = vtMatch[0];
+        }
+      }
+      // ── 若 buffer + leftPart 都沒找到院所代碼，嘗試從 rightPart 掃描（代碼在藥品碼右側同一行時）─
+      if (!providerCode && rightPart) {
+        const rpProvMatch = rightPart.match(/\b([0-9ILOilo|\/][A-Za-z0-9\/]{8,9})\b/);
+        if (rpProvMatch) {
+          const pC = rpProvMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0').replace(/\//g, '7');
+          if (pC.length === 10) {
+            providerCode = pC;
+          }
         }
       }
 
@@ -462,6 +488,20 @@ function preprocessOcrText(rawText) {
           if (isValidClinicName(word)) {
             source = normalizeHospitalName(word);
             break;
+          }
+        }
+      }
+      // ── 若還沒找到院所名稱，嘗試將 OCR 拆開的中文字合併後再試（如「烏 藥 局」→「烏藥局」）──────
+      if (!source) {
+        const strippedNorm = stripped.replace(/\s+/g, '');
+        // 抓所有連續中文字段（去空格後）
+        const normChinese = strippedNorm.match(/[\u4e00-\u9fa5]{2,}/g);
+        if (normChinese) {
+          for (const w of normChinese) {
+            if (isValidClinicName(w)) {
+              source = normalizeHospitalName(w);
+              break;
+            }
           }
         }
       }
