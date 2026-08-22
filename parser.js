@@ -347,18 +347,21 @@ function preprocessOcrText(rawText) {
           if (pC.length === 10) {
             providerCode = pC;
           }
-        } else if ((bLine === "門診" || bLine === "住診" || bLine === "藥局" || bLine === "急診") && !visitType) {
-          visitType = bLine;
+        } else if (bLine === "門診" || bLine === "住診" || bLine === "藥局" || bLine === "急診") {
+          if (!visitType) visitType = bLine;
         } else if (!source) {
           let candidate = bLine.replace(/^\d+\s+/, '').trim(); // 去掉前置序號
           candidate = candidate.replace(/^[\(\)（）\s\.\-]+|[\(\)（）\s\.\-]+$/g, '').trim();
           const hasChinese = /[\u4e00-\u9fa5]/.test(candidate);
           const isShort = candidate.length >= 2 && candidate.length <= 12;
+          const isVisitType = /^(門診|住診|藥局|急診)$/.test(candidate);
           const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性|乳房|女性|男性|部位|劑|藥|液|類|抗|固醇|疾患|二尖瓣|風濕|分泌|胃酸|機能|失調|腹痛|痛|昏|暈|衰竭|高血脂|糖尿|心臟|冠狀|胃潰瘍|氣喘|支氣管/.test(candidate);
           const isHeaderJunk = /項次|來源|主診斷|ATC3|複方|註記|成分|藥品|代碼|名稱|就醫|日期|慢連箋|領藥|住院|規格|用法|用量|給藥|日數|試算|單筆|餘藥|餘日|餘\s*人|筆\s*餘/.test(candidate);
           const isMostlyEnglish = (candidate.replace(/[^A-Za-z]/g, '').length / candidate.length) > 0.5;
           const isJunkLine = /^[0-9\s\.\-\|\/\\@#\*\(\)（）]+$/.test(candidate);
-          if (hasChinese && isShort && !isDiagnosis && !isHeaderJunk && !isMostlyEnglish && !isJunkLine) {
+          if (isVisitType) {
+            if (!visitType) visitType = candidate;
+          } else if (hasChinese && isShort && !isDiagnosis && !isHeaderJunk && !isMostlyEnglish && !isJunkLine) {
             source = candidate;
           }
         }
@@ -412,15 +415,14 @@ function preprocessOcrText(rawText) {
         }
       }
 
-      if (!source) {
-        const stripped = leftPart.replace(/^\d+\s+/, '');
-        const chineseWords = stripped.match(/[\u4e00-\u9fa5]+/g);
-        if (chineseWords) {
-          for (const word of chineseWords) {
-            if (word.length >= 2 && word.length <= 12 && !/病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性|乳房|女性|男性|部位|劑|藥|液|類|抗|固醇|疾患|二尖瓣|風濕|分泌|胃酸|機能|失調|腹痛|痛|昏|暈|衰竭|高血脂|糖尿|心臟|冠狀|胃潰瘍|氣喘|支氣管/.test(word) && !/項次|來源|主診斷|ATC3|複方|註記|成分|藥品|代碼|名稱|就醫|日期|慢連箋|領藥|住院|規格|用法|用量|給藥|日數|試算|單筆|餘藥|餘日|餘\s*人|筆\s*餘/.test(word)) {
-              source = word;
-              break;
-            }
+      // 優先從本行直接擷取院所名稱（如「13 台北長庚 ...」）
+      const stripped = leftPart.replace(/^\d+\s+/, '');
+      const chineseWords = stripped.match(/[\u4e00-\u9fa5]+/g);
+      if (chineseWords) {
+        for (const word of chineseWords) {
+          if (word.length >= 2 && word.length <= 12 && !/^(門診|住診|藥局|急診)$/.test(word) && !/病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性|乳房|女性|男性|部位|劑|藥|液|類|抗|固醇|疾患|二尖瓣|風濕|分泌|胃酸|機能|失調|腹痛|痛|昏|暈|衰竭|高血脂|糖尿|心臟|冠狀|胃潰瘍|氣喘|支氣管/.test(word) && !/項次|來源|主診斷|ATC3|複方|註記|成分|藥品|代碼|名稱|就醫|日期|慢連箋|領藥|住院|規格|用法|用量|給藥|日數|試算|單筆|餘藥|餘日|餘\s*人|筆\s*餘/.test(word)) {
+            source = word;
+            break;
           }
         }
       }
@@ -489,7 +491,7 @@ function preprocessOcrText(rawText) {
         }
       }
 
-      // 更新跨列持久狀態（解決表格 OCR 模式中，就醫別/院所代碼位於藥物行下方之問題）
+      // 更新跨列持久狀態
       if (providerCode) runningProviderCode = providerCode;
       if (visitType) runningVisitType = visitType;
       if (source) runningSource = source;
@@ -498,9 +500,11 @@ function preprocessOcrText(rawText) {
       const curVisitType = visitType || runningVisitType;
       const curSource = source || runningSource;
 
-      // OCR 辨識：優先使用 PROVIDER_DB 官方全名，次之使用辨識到的院所名稱 (source)，最後才退回 —
+      // OCR 辨識：優先使用本列直接辨識到的院所名稱 (source) 或 PROVIDER_DB 官方全名，最後才退回 —
       let finalSource = "";
-      if (curProviderCode && typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[curProviderCode]) {
+      if (source) {
+        finalSource = curVisitType ? `${source}（${curVisitType}）` : source;
+      } else if (curProviderCode && typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[curProviderCode]) {
         const clinicName = window.PROVIDER_DB[curProviderCode];
         finalSource = curVisitType ? `${clinicName}（${curVisitType}）` : clinicName;
       } else if (curSource) {
