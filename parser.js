@@ -253,6 +253,9 @@ function preprocessOcrText(rawText) {
   const lines = rawText.split(/[\r\n]+/).map(l => l.trim()).filter(l => l.length > 0);
   const reconstructedLines = [];
   let buffer = [];
+  let runningProviderCode = "";
+  let runningVisitType = "";
+  let runningSource = "";
 
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
@@ -306,12 +309,14 @@ function preprocessOcrText(rawText) {
     line = line.replace(/([a-z]{3,})([A-Za-z]{1,2}\d{5,9}[A-Za-z0-9]{0,3})/gi, '$1 $2');
     line = line.replace(/([A-Za-z]{1,2}\d{5,9}[A-Za-z0-9]{0,3})([A-Za-z]{3,})/gi, '$1 $2');
 
-    let codeMatch = line.match(/\b([A-Za-z]{1,2}\d{6,9}[A-Za-z0-9]{0,3})\b/);
-    if (!codeMatch) {
-      codeMatch = line.match(/\b([A-Za-z]{1,2}\d{5,9}[A-Za-z0-9]{0,3})\b/);
+    let codeMatch = line.match(/\b([A-Za-z]{1,2}\d{5,9}[A-Za-z0-9]{0,3})\b/);
+    let code = "";
+    if (codeMatch) {
+      const cStr = codeMatch[1];
+      if (cStr.length >= 8 && cStr.length <= 11) {
+        code = cStr;
+      }
     }
-    
-    let code = codeMatch ? codeMatch[1] : "";
     let isKeywordFallback = false;
 
     // 若 OCR 漏認了健保代碼，但該行含有已知藥物關鍵字，自動由字典補全代碼
@@ -338,21 +343,18 @@ function preprocessOcrText(rawText) {
         const bLine = buffer[j];
         const provMatch = bLine.match(/\b([0-9ILOilo|\/][A-Za-z0-9\/]{8,9})\b/);
         if (provMatch && !providerCode) {
-          providerCode = provMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0').replace(/\//g, '7');
+          const pC = provMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0').replace(/\//g, '7');
+          if (pC.length === 10) {
+            providerCode = pC;
+          }
         } else if ((bLine === "門診" || bLine === "住診" || bLine === "藥局" || bLine === "急診") && !visitType) {
           visitType = bLine;
         } else if (!source) {
-          // ── 嚴格驗證診所名稱 ────────────────────────────────────────────────
-          // 台灣健保診所名稱特徵：
-          //   1. 長度合理（去掉序號後 2~12 個字元）
-          //   2. 必須含有中文字元
-          //   3. 不能是疾病診斷名稱（含有常見診斷關鍵字）
-          //   4. 不能含有大量英文/數字（可能是診斷碼或 ATC 分類）
           let candidate = bLine.replace(/^\d+\s+/, '').trim(); // 去掉前置序號
           candidate = candidate.replace(/^[\(\)（）\s\.\-]+|[\(\)（）\s\.\-]+$/g, '').trim();
           const hasChinese = /[\u4e00-\u9fa5]/.test(candidate);
           const isShort = candidate.length >= 2 && candidate.length <= 12;
-          const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性/.test(candidate);
+          const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性|乳房|女性|男性|部位/.test(candidate);
           const isMostlyEnglish = (candidate.replace(/[^A-Za-z]/g, '').length / candidate.length) > 0.5;
           const isJunkLine = /^[0-9\s\.\-\|\/\\@#\*\(\)（）]+$/.test(candidate);
           if (hasChinese && isShort && !isDiagnosis && !isMostlyEnglish && !isJunkLine) {
@@ -396,7 +398,10 @@ function preprocessOcrText(rawText) {
       if (!providerCode) {
         const provMatch = leftPart.match(/\b([0-9ILOilo|\/][A-Za-z0-9\/]{8,9})\b/);
         if (provMatch) {
-          providerCode = provMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0').replace(/\//g, '7');
+          const pC = provMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0').replace(/\//g, '7');
+          if (pC.length === 10) {
+            providerCode = pC;
+          }
         }
       }
       if (!visitType) {
@@ -407,22 +412,13 @@ function preprocessOcrText(rawText) {
       }
 
       if (!source) {
-        let beforeAnchor = "";
-        if (providerCode && leftPart.includes(providerCode)) {
-          beforeAnchor = leftPart.split(providerCode)[0].trim();
-        } else if (visitType && leftPart.includes(visitType)) {
-          beforeAnchor = leftPart.split(visitType)[0].trim();
-        }
-        if (beforeAnchor) {
-          const stripped = beforeAnchor.replace(/門診|住診|藥局|急診/g, ' ').replace(/\d+/g, ' ').trim();
-          const chunkMatch = stripped.match(/[\u4e00-\u9fa5]+/g);
-          if (chunkMatch && chunkMatch.length > 0) {
-            const candidate = chunkMatch.join('').trim();
-            const hasChinese = /[\u4e00-\u9fa5]/.test(candidate);
-            const isShort = candidate.length >= 2 && candidate.length <= 12;
-            const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓/.test(candidate);
-            if (hasChinese && isShort && !isDiagnosis) {
-              source = candidate;
+        const stripped = leftPart.replace(/^\d+\s+/, '');
+        const chineseWords = stripped.match(/[\u4e00-\u9fa5]+/g);
+        if (chineseWords) {
+          for (const word of chineseWords) {
+            if (word.length >= 2 && word.length <= 12 && !/病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性|乳房|女性|男性|部位|劑|藥|液|類|抗|固醇/.test(word)) {
+              source = word;
+              break;
             }
           }
         }
@@ -447,8 +443,6 @@ function preprocessOcrText(rawText) {
       let englishPart = lastChineseIdx !== -1 ? searchStr.substring(lastChineseIdx + 1).trim() : searchStr;
 
       // ── OCR 防錯：ATC 分類說明可能殘留在 englishPart 前面 ─────────────────────
-      // 例如：「for systemic use） Dexchlorpheniramine Maleate」
-      //   或：「preparations） Benzbromarone」
       const lastCloseParenIdx = Math.max(englishPart.lastIndexOf('）'), englishPart.lastIndexOf(')'));
       if (lastCloseParenIdx !== -1 && lastCloseParenIdx < englishPart.length - 1) {
         const afterParen = englishPart.substring(lastCloseParenIdx + 1).trim();
@@ -485,7 +479,6 @@ function preprocessOcrText(rawText) {
       // ── 如果同一行中找不到日期，嘗試從右側或是歷史緩衝尋找日期 ──────────────
       let finalDate = date;
       if (!finalDate) {
-        // 往前找 buffer 中的日期
         for (let j = buffer.length - 1; j >= 0; j--) {
           const dM = buffer[j].match(/(\d{2,4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})/);
           if (dM) {
@@ -495,15 +488,24 @@ function preprocessOcrText(rawText) {
         }
       }
 
+      // 更新跨列持久狀態（解決表格 OCR 模式中，就醫別/院所代碼位於藥物行下方之問題）
+      if (providerCode) runningProviderCode = providerCode;
+      if (visitType) runningVisitType = visitType;
+      if (source) runningSource = source;
+
+      const curProviderCode = providerCode || runningProviderCode;
+      const curVisitType = visitType || runningVisitType;
+      const curSource = source || runningSource;
+
       // OCR 辨識：優先使用 PROVIDER_DB 官方全名，次之使用辨識到的院所名稱 (source)，最後才退回 —
       let finalSource = "";
-      if (providerCode && typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[providerCode]) {
-        const clinicName = window.PROVIDER_DB[providerCode];
-        finalSource = visitType ? `${clinicName}（${visitType}）` : clinicName;
-      } else if (source) {
-        finalSource = visitType ? `${source}（${visitType}）` : source;
-      } else if (visitType) {
-        finalSource = `—（${visitType}）`;
+      if (curProviderCode && typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[curProviderCode]) {
+        const clinicName = window.PROVIDER_DB[curProviderCode];
+        finalSource = curVisitType ? `${clinicName}（${curVisitType}）` : clinicName;
+      } else if (curSource) {
+        finalSource = curVisitType ? `${curSource}（${curVisitType}）` : curSource;
+      } else if (curVisitType) {
+        finalSource = `—（${curVisitType}）`;
       }
 
       // NHI Code Dictionary fallback: if generic is empty, garbled, or code exists in dictionary, canonicalize generic & brand
