@@ -494,25 +494,27 @@ function preprocessOcrText(rawText) {
         }
       }
 
-      // 更新跨列持久狀態
       if (providerCode) runningProviderCode = providerCode;
       if (visitType) runningVisitType = visitType;
       if (source) runningSource = source;
 
       const curProviderCode = providerCode || runningProviderCode;
-      const curVisitType = visitType || runningVisitType;
+      const curVisitType = visitType || runningVisitType || "門診";
       const curSource = source || runningSource;
 
-      // OCR 辨識：優先使用本列直接辨識到的院所名稱 (source) 或 PROVIDER_DB 官方全名，最後才退回 —
+      // OCR 辨識：優先使用本列直接辨識到的院所名稱 (source)，次之使用本列代碼或持久代碼
       let finalSource = "";
       if (source) {
-        finalSource = curVisitType ? `${source}（${curVisitType}）` : source;
+        finalSource = `${source}（${curVisitType}）`;
+      } else if (providerCode && typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[providerCode]) {
+        const clinicName = window.PROVIDER_DB[providerCode];
+        finalSource = `${clinicName}（${curVisitType}）`;
       } else if (curProviderCode && typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[curProviderCode]) {
         const clinicName = window.PROVIDER_DB[curProviderCode];
-        finalSource = curVisitType ? `${clinicName}（${curVisitType}）` : clinicName;
+        finalSource = `${clinicName}（${curVisitType}）`;
       } else if (curSource) {
-        finalSource = curVisitType ? `${curSource}（${curVisitType}）` : curSource;
-      } else if (curVisitType) {
+        finalSource = `${curSource}（${curVisitType}）`;
+      } else {
         finalSource = `—（${curVisitType}）`;
       }
 
@@ -1284,6 +1286,16 @@ function parseAndCategorizeCloudPrescription(rawText) {
     // 往回尋找最匹配的院所名稱與就醫別（雙向補全與對照）
     let finalSource = "";
     let finalVisitType = "";
+
+    // 優先檢查本列（block）自身第一欄是否已直接包含院所名稱與就醫別
+    const ownFirstCol = block.split('\t')[0].trim();
+    const ownEmbeddedMatch = ownFirstCol.match(/^(.+?)（(門診|住診|藥局|急診)）$/);
+    if (ownEmbeddedMatch && isValidClinicName(ownEmbeddedMatch[1].trim())) {
+      finalSource = ownEmbeddedMatch[1].trim();
+      finalVisitType = ownEmbeddedMatch[2].trim();
+    } else if (isValidClinicName(ownFirstCol)) {
+      finalSource = ownFirstCol;
+    }
 
     for (let j = idx - 1; j >= 0; j--) {
       const bLine = blocks[j].trim();
