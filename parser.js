@@ -242,10 +242,46 @@ function cleanGenericName(rawGeneric) {
   return cleaned;
 }
 
+const HOSPITAL_ABBR_MAP = {
+  "台北醫大": "臺北醫學大學附設醫院",
+  "臺北醫大": "臺北醫學大學附設醫院",
+  "北醫": "臺北醫學大學附設醫院",
+  "台北長庚": "長庚醫療財團法人台北長庚紀念醫院",
+  "臺北長庚": "長庚醫療財團法人台北長庚紀念醫院",
+  "林口長庚": "長庚醫療財團法人林口長庚紀念醫院",
+  "基隆長庚": "長庚醫療財團法人基隆長庚紀念醫院",
+  "高雄長庚": "長庚醫療財團法人高雄長庚紀念醫院",
+  "嘉義長庚": "長庚醫療財團法人嘉義長庚紀念醫院",
+  "台大醫院": "國立臺灣大學醫學院附設醫院",
+  "臺大醫院": "國立臺灣大學醫學院附設醫院",
+  "台大": "國立臺灣大學醫學院附設醫院",
+  "臺大": "國立臺灣大學醫學院附設醫院",
+  "台北榮總": "臺北榮民總醫院",
+  "臺北榮總": "臺北榮民總醫院",
+  "台中榮總": "臺中榮民總醫院",
+  "高雄榮總": "高雄榮民總醫院",
+  "馬偕醫院": "台灣基督長老教會馬偕醫療財團法人馬偕紀念醫院",
+  "台北馬偕": "台灣基督長老教會馬偕醫療財團法人馬偕紀念醫院",
+  "淡水馬偕": "台灣基督長老教會馬偕醫療財團法人淡水馬偕紀念醫院",
+  "新竹馬偕": "台灣基督長老教會馬偕醫療財團法人新竹馬偕紀念醫院",
+  "新光醫院": "新光醫療財團法人新光吳火獅紀念醫院",
+  "國泰醫院": "國泰醫療財團法人國泰綜合醫院",
+  "亞東醫院": "醫療財團法人徐元智先生醫藥基金會亞東紀念醫院",
+  "雙和醫院": "衛生福利部雙和醫院",
+  "萬芳醫院": "臺北市立萬芳醫院",
+  "振興醫院": "振興醫療財團法人振興醫院",
+};
+
+function normalizeHospitalName(name) {
+  if (!name) return name;
+  const trimmed = name.trim();
+  return HOSPITAL_ABBR_MAP[trimmed] || trimmed;
+}
+
 function isValidClinicName(cand) {
   if (!cand) return false;
   const c = cand.trim();
-  if (c.length < 2 || c.length > 15) return false;
+  if (c.length < 2 || c.length > 30) return false;
   if (/^(門診|住診|藥局|急診)$/.test(c)) return false;
   if (/項次|來源|主診斷|ATC3|複方|註記|成分|藥品|代碼|名稱|就醫|日期|慢連箋|領藥|住院|規格|用法|用量|給藥|日數|試算|單筆|餘藥|餘日|餘\s*人|筆\s*餘/.test(c)) return false;
   if (/病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性|乳房|女性|男性|部位|劑|藥|液|類|抗|固醇|疾患|二尖瓣|風濕|分泌|胃酸|機能|失調|腹痛|痛|昏|暈|衰竭|高血脂|糖尿|心臟|冠狀|胃潰瘍|氣喘|支氣管|過動|明示/.test(c)) return false;
@@ -424,7 +460,7 @@ function preprocessOcrText(rawText) {
       if (chineseWords) {
         for (const word of chineseWords) {
           if (isValidClinicName(word)) {
-            source = word;
+            source = normalizeHospitalName(word);
             break;
           }
         }
@@ -494,6 +530,11 @@ function preprocessOcrText(rawText) {
         }
       }
 
+      // 如果本行有明確識別出新的院所名稱，且與先前的持久名稱不同，重置先前殘留的持久機構代碼，避免溢位覆蓋
+      if (source && runningSource && source !== runningSource) {
+        runningProviderCode = "";
+      }
+
       if (providerCode) runningProviderCode = providerCode;
       if (visitType) runningVisitType = visitType;
       if (source) runningSource = source;
@@ -505,7 +546,7 @@ function preprocessOcrText(rawText) {
       // OCR 辨識：優先使用本列直接辨識到的院所名稱 (source)，次之使用本列代碼或持久代碼
       let finalSource = "";
       if (source) {
-        finalSource = `${source}（${curVisitType}）`;
+        finalSource = `${normalizeHospitalName(source)}（${curVisitType}）`;
       } else if (providerCode && typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[providerCode]) {
         const clinicName = window.PROVIDER_DB[providerCode];
         finalSource = `${clinicName}（${curVisitType}）`;
@@ -513,7 +554,7 @@ function preprocessOcrText(rawText) {
         const clinicName = window.PROVIDER_DB[curProviderCode];
         finalSource = `${clinicName}（${curVisitType}）`;
       } else if (curSource) {
-        finalSource = `${curSource}（${curVisitType}）`;
+        finalSource = `${normalizeHospitalName(curSource)}（${curVisitType}）`;
       } else {
         finalSource = `—（${curVisitType}）`;
       }
@@ -1004,7 +1045,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i].trim();
     const m = b.match(itemLineRe);
-    if (m && isValidClinicName(m[2].trim())) { lastSource = m[2].trim(); }
+    if (m && isValidClinicName(m[2].trim())) { lastSource = normalizeHospitalName(m[2].trim()); }
     if (visitTypeRe.test(b)) { lastVisitType = b.trim(); }
 
     // ── OCR 重組行：第一欄格式為「院所名稱（門診/住診/藥局/急診）」
@@ -1013,15 +1054,17 @@ function parseAndCategorizeCloudPrescription(rawText) {
     if (embeddedSrcMatch) {
       const cand = embeddedSrcMatch[1].trim();
       if (isValidClinicName(cand)) {
-        lastSource = cand;
+        lastSource = normalizeHospitalName(cand);
       }
       lastVisitType = embeddedSrcMatch[2].trim();
+    } else if (isValidClinicName(firstCol)) {
+      lastSource = normalizeHospitalName(firstCol);
     }
 
     // ── 第一筆記錄無序號：「台北醫大」這種純診所名稱行也要偵測 ───────────────
     if (!m && !embeddedSrcMatch && !visitTypeRe.test(b) && !b.includes('\t')) {
       if (isValidClinicName(b)) {
-        lastSource = b;
+        lastSource = normalizeHospitalName(b);
       }
     }
 
@@ -1033,7 +1076,7 @@ function parseAndCategorizeCloudPrescription(rawText) {
       if (typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[provCode]) {
         providerMap[provCode] = window.PROVIDER_DB[provCode];
       } else if (lastSource && isValidClinicName(lastSource)) {
-        providerMap[provCode] = lastSource;
+        providerMap[provCode] = normalizeHospitalName(lastSource);
       }
     }
 
@@ -1291,10 +1334,10 @@ function parseAndCategorizeCloudPrescription(rawText) {
     const ownFirstCol = block.split('\t')[0].trim();
     const ownEmbeddedMatch = ownFirstCol.match(/^(.+?)（(門診|住診|藥局|急診)）$/);
     if (ownEmbeddedMatch && isValidClinicName(ownEmbeddedMatch[1].trim())) {
-      finalSource = ownEmbeddedMatch[1].trim();
+      finalSource = normalizeHospitalName(ownEmbeddedMatch[1].trim());
       finalVisitType = ownEmbeddedMatch[2].trim();
     } else if (isValidClinicName(ownFirstCol)) {
-      finalSource = ownFirstCol;
+      finalSource = normalizeHospitalName(ownFirstCol);
     }
 
     for (let j = idx - 1; j >= 0; j--) {
