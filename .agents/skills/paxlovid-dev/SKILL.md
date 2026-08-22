@@ -21,6 +21,7 @@ This skill provides guidelines, architectural principles, and runbooks for devel
   - `styles.css`: CSS variables, themes (Clinical Light, Eye-care Warm, Clinical Dark), responsive layouts, and `@media print` rules for A4 single-page education sheets.
   - `main.js`: UI logic, event bindings, Tesseract OCR orchestration with dual-mode fallback, and iframe-based print preview generation.
   - `nhi_lookup.js`: Official Taiwan NHI Drug Database (115年08月最新版，包含全台 45,175 筆單方與複方藥品代碼、成分學名與商品名).
+  - `provider_lookup.js`: Compiled Taiwan Medical Provider Database (37,001 entries mapping 10-digit medical institution codes to hospital/clinic names).
   - `parser.js`: Cloud prescription parsing, OCR preprocessing, NHI code dictionary lookup (`getNhiCodeEntry` & `NHI_CODE_LOOKUP`), drug normalization (`normalizeDrugKey`), and clinical suggestion matching (`getDictSuggestion`).
   - `data.js`: Clinical database with hardcoded keyword arrays (`proh`, `dont`, `pote`, `safe`, `safe2`, `SAFE_KEYWORDS`) and the recommendation dictionary (`DICT`).
 

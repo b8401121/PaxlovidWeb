@@ -360,6 +360,9 @@ function preprocessOcrText(rawText) {
           }
         }
       }
+      if (!source && providerCode && (typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[providerCode])) {
+        source = window.PROVIDER_DB[providerCode];
+      }
 
       let leftPart = "";
       let rightPart = "";
@@ -423,6 +426,9 @@ function preprocessOcrText(rawText) {
             }
           }
         }
+      }
+      if (!source && providerCode && (typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[providerCode])) {
+        source = window.PROVIDER_DB[providerCode];
       }
 
       if (providerCode && leftPart.includes(providerCode)) {
@@ -1270,6 +1276,8 @@ function parseAndCategorizeCloudPrescription(rawText) {
         const provCode = blockProviders[j];
         if (provCode && providerMap[provCode]) {
           finalSource = providerMap[provCode];
+        } else if (provCode && (typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[provCode])) {
+          finalSource = window.PROVIDER_DB[provCode];
         } else {
           const m = bLine.match(itemLineRe);
           if (m) {
