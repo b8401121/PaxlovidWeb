@@ -336,9 +336,9 @@ function preprocessOcrText(rawText) {
 
       for (let j = buffer.length - 1; j >= 0; j--) {
         const bLine = buffer[j];
-        const provMatch = bLine.match(/\b([0-9ILOilo|][A-Za-z0-9]{9})\b/);
+        const provMatch = bLine.match(/\b([0-9ILOilo|\/][A-Za-z0-9\/]{8,9})\b/);
         if (provMatch && !providerCode) {
-          providerCode = provMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0');
+          providerCode = provMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0').replace(/\//g, '7');
         } else if ((bLine === "門診" || bLine === "住診" || bLine === "藥局" || bLine === "急診") && !visitType) {
           visitType = bLine;
         } else if (!source) {
@@ -394,9 +394,9 @@ function preprocessOcrText(rawText) {
 
       // ── 檢查 leftPart 是否含有院所代碼與就醫別（單列 OCR 模式）────────────────────
       if (!providerCode) {
-        const provMatch = leftPart.match(/\b([0-9ILOilo|][A-Za-z0-9]{9})\b/);
+        const provMatch = leftPart.match(/\b([0-9ILOilo|\/][A-Za-z0-9\/]{8,9})\b/);
         if (provMatch) {
-          providerCode = provMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0');
+          providerCode = provMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0').replace(/\//g, '7');
         }
       }
       if (!visitType) {
@@ -495,11 +495,13 @@ function preprocessOcrText(rawText) {
         }
       }
 
-      // OCR 辨識：若能藉由 PROVIDER_DB 查到官方名稱則保留，避免誤讀混淆
+      // OCR 辨識：優先使用 PROVIDER_DB 官方全名，次之使用辨識到的院所名稱 (source)，最後才退回 —
       let finalSource = "";
       if (providerCode && typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[providerCode]) {
         const clinicName = window.PROVIDER_DB[providerCode];
         finalSource = visitType ? `${clinicName}（${visitType}）` : clinicName;
+      } else if (source) {
+        finalSource = visitType ? `${source}（${visitType}）` : source;
       } else if (visitType) {
         finalSource = `—（${visitType}）`;
       }
