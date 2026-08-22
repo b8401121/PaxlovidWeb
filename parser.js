@@ -1002,26 +1002,23 @@ function parseAndCategorizeCloudPrescription(rawText) {
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i].trim();
     const m = b.match(itemLineRe);
-    if (m) { lastSource = m[2].trim(); }
+    if (m && isValidClinicName(m[2].trim())) { lastSource = m[2].trim(); }
     if (visitTypeRe.test(b)) { lastVisitType = b.trim(); }
 
     // ── OCR 重組行：第一欄格式為「院所名稱（門診/住診/藥局/急診）」
     const firstCol = b.split('\t')[0];
     const embeddedSrcMatch = firstCol.match(/^(.+?)（(門診|住診|藥局|急診)）$/);
     if (embeddedSrcMatch) {
-      lastSource = embeddedSrcMatch[1].trim();
+      const cand = embeddedSrcMatch[1].trim();
+      if (isValidClinicName(cand)) {
+        lastSource = cand;
+      }
       lastVisitType = embeddedSrcMatch[2].trim();
     }
 
     // ── 第一筆記錄無序號：「台北醫大」這種純診所名稱行也要偵測 ───────────────
-    // 雲端藥歷第一筆不含序號，後面才有「2\t台北醫大」格式。
-    // 同樣套用嚴格驗證：短、有中文、不是診斷詞、不是英文為主、無 Tab
     if (!m && !embeddedSrcMatch && !visitTypeRe.test(b) && !b.includes('\t')) {
-      const hasChinese = /[\u4e00-\u9fa5]/.test(b);
-      const isShort = b.length >= 2 && b.length <= 12;
-      const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明/.test(b);
-      const isMostlyEnglish = b.replace(/[^A-Za-z]/g, '').length / b.length > 0.5;
-      if (hasChinese && isShort && !isDiagnosis && !isMostlyEnglish) {
+      if (isValidClinicName(b)) {
         lastSource = b;
       }
     }
@@ -1031,7 +1028,9 @@ function parseAndCategorizeCloudPrescription(rawText) {
     if (provMatch) {
       const provCode = provMatch[1];
       blockProviders[i] = provCode;
-      if (lastSource) {
+      if (typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[provCode]) {
+        providerMap[provCode] = window.PROVIDER_DB[provCode];
+      } else if (lastSource && isValidClinicName(lastSource)) {
         providerMap[provCode] = lastSource;
       }
     }
@@ -1292,24 +1291,23 @@ function parseAndCategorizeCloudPrescription(rawText) {
       // 1. 尋找院所名稱
       if (!finalSource) {
         const provCode = blockProviders[j];
-        if (provCode && providerMap[provCode]) {
-          finalSource = providerMap[provCode];
-        } else if (provCode && (typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[provCode])) {
+        if (provCode && (typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[provCode])) {
           finalSource = window.PROVIDER_DB[provCode];
+        } else if (provCode && providerMap[provCode]) {
+          finalSource = providerMap[provCode];
         } else {
           const m = bLine.match(itemLineRe);
-          if (m) {
+          if (m && isValidClinicName(m[2].trim())) {
             finalSource = m[2].trim();
           } else {
             const embeddedMatch = bLine.split('\t')[0].match(/^(.+?)（(門診|住診|藥局|急診)）$/);
             if (embeddedMatch) {
-              finalSource = embeddedMatch[1].trim();
+              const cand = embeddedMatch[1].trim();
+              if (isValidClinicName(cand)) {
+                finalSource = cand;
+              }
             } else if (!bLine.includes('\t') && !visitTypeRe.test(bLine)) {
-              const hasChinese = /[\u4e00-\u9fa5]/.test(bLine);
-              const isShort = bLine.length >= 2 && bLine.length <= 12;
-              const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明/.test(bLine);
-              const isMostlyEnglish = bLine.replace(/[^A-Za-z]/g, '').length / bLine.length > 0.5;
-              if (hasChinese && isShort && !isDiagnosis && !isMostlyEnglish) {
+              if (isValidClinicName(bLine)) {
                 finalSource = bLine;
               }
             }
