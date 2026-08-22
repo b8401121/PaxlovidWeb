@@ -336,9 +336,9 @@ function preprocessOcrText(rawText) {
 
       for (let j = buffer.length - 1; j >= 0; j--) {
         const bLine = buffer[j];
-        const provMatch = bLine.match(/\b(\d[A-Za-z0-9]{9})\b/);
+        const provMatch = bLine.match(/\b([0-9ILOilo|][A-Za-z0-9]{9})\b/);
         if (provMatch && !providerCode) {
-          providerCode = provMatch[1];
+          providerCode = provMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0');
         } else if ((bLine === "門診" || bLine === "住診" || bLine === "藥局" || bLine === "急診") && !visitType) {
           visitType = bLine;
         } else if (!source) {
@@ -394,9 +394,9 @@ function preprocessOcrText(rawText) {
 
       // ── 檢查 leftPart 是否含有院所代碼與就醫別（單列 OCR 模式）────────────────────
       if (!providerCode) {
-        const provMatch = leftPart.match(/\b(\d[A-Za-z0-9]{9})\b/);
+        const provMatch = leftPart.match(/\b([0-9ILOilo|][A-Za-z0-9]{9})\b/);
         if (provMatch) {
-          providerCode = provMatch[1];
+          providerCode = provMatch[1].toUpperCase().replace(/I|L|\|/g, '1').replace(/O/g, '0');
         }
       }
       if (!visitType) {
