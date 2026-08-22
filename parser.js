@@ -495,8 +495,14 @@ function preprocessOcrText(rawText) {
         }
       }
 
-      // OCR 辨識不保留診所名稱（避免 OCR 誤讀混淆），剪下貼上模式則會保留
+      // OCR 辨識：若能藉由 PROVIDER_DB 查到官方名稱則保留，避免誤讀混淆
       let finalSource = "";
+      if (providerCode && typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[providerCode]) {
+        const clinicName = window.PROVIDER_DB[providerCode];
+        finalSource = visitType ? `${clinicName}（${visitType}）` : clinicName;
+      } else if (visitType) {
+        finalSource = `—（${visitType}）`;
+      }
 
       // NHI Code Dictionary fallback: if generic is empty, garbled, or code exists in dictionary, canonicalize generic & brand
       const entry = typeof getNhiCodeEntry === 'function' ? getNhiCodeEntry(code) : (typeof NHI_CODE_LOOKUP !== 'undefined' ? NHI_CODE_LOOKUP[code] : null);
