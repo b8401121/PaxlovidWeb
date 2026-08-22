@@ -242,6 +242,19 @@ function cleanGenericName(rawGeneric) {
   return cleaned;
 }
 
+function isValidClinicName(cand) {
+  if (!cand) return false;
+  const c = cand.trim();
+  if (c.length < 2 || c.length > 15) return false;
+  if (/^(門診|住診|藥局|急診)$/.test(c)) return false;
+  if (/項次|來源|主診斷|ATC3|複方|註記|成分|藥品|代碼|名稱|就醫|日期|慢連箋|領藥|住院|規格|用法|用量|給藥|日數|試算|單筆|餘藥|餘日|餘\s*人|筆\s*餘/.test(c)) return false;
+  if (/病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性|乳房|女性|男性|部位|劑|藥|液|類|抗|固醇|疾患|二尖瓣|風濕|分泌|胃酸|機能|失調|腹痛|痛|昏|暈|衰竭|高血脂|糖尿|心臟|冠狀|胃潰瘍|氣喘|支氣管|過動|明示/.test(c)) return false;
+  // 必須符合台灣醫療機構名稱特徵（結尾為醫院/分院/診所/藥局/衛生所，或含有大型醫療體系關鍵字）
+  const hasClinicSuffix = /(醫院|分院|診所|藥局|衛生所|療養院|門診部|附設|中心診所|醫事|檢驗所|護理|治療所)$/.test(c);
+  const hasMedicalCenterKw = /(長庚|榮總|台大|臺大|北醫|醫大|馬偕|國泰|新光|三總|振興|慈濟|恩主公|秀傳|耕莘|亞東|雙和|萬芳|仁愛|和平|婦幼|中興|陽明|忠孝|松德|市立|部立|署立|義大|高醫|成大|奇美|安南|中醫大|彰醫|敏盛|聯新|童綜合|澄清|光田|員榮|輔大|門諾|慈惠|聖母|博愛|杏和)/.test(c);
+  return hasClinicSuffix || hasMedicalCenterKw;
+}
+
 function preprocessOcrText(rawText) {
   if (!rawText || !rawText.trim()) return rawText;
 
@@ -263,7 +276,6 @@ function preprocessOcrText(rawText) {
     // ── OCR 字元修正：替換常見數字/字母混淆 ──────────────────────────────
     // 0. 清除健保碼中間夾雜的表格斜線/豎線（例如 BC233/4100 或 BC233|4100 -> BC23374100 或 BC23314100）
     line = line.replace(/([A-Za-z]{1,2}\d{2,4})[\/\\|](\d{3,5})/g, (m, p1, p2) => {
-      // 在台灣健保碼中，斜線最常是 7 或 1 被誤判
       return p1 + '7' + p2;
     });
 
@@ -352,16 +364,7 @@ function preprocessOcrText(rawText) {
         } else if (!source) {
           let candidate = bLine.replace(/^\d+\s+/, '').trim(); // 去掉前置序號
           candidate = candidate.replace(/^[\(\)（）\s\.\-]+|[\(\)（）\s\.\-]+$/g, '').trim();
-          const hasChinese = /[\u4e00-\u9fa5]/.test(candidate);
-          const isShort = candidate.length >= 2 && candidate.length <= 12;
-          const isVisitType = /^(門診|住診|藥局|急診)$/.test(candidate);
-          const isDiagnosis = /病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性|乳房|女性|男性|部位|劑|藥|液|類|抗|固醇|疾患|二尖瓣|風濕|分泌|胃酸|機能|失調|腹痛|痛|昏|暈|衰竭|高血脂|糖尿|心臟|冠狀|胃潰瘍|氣喘|支氣管/.test(candidate);
-          const isHeaderJunk = /項次|來源|主診斷|ATC3|複方|註記|成分|藥品|代碼|名稱|就醫|日期|慢連箋|領藥|住院|規格|用法|用量|給藥|日數|試算|單筆|餘藥|餘日|餘\s*人|筆\s*餘/.test(candidate);
-          const isMostlyEnglish = (candidate.replace(/[^A-Za-z]/g, '').length / candidate.length) > 0.5;
-          const isJunkLine = /^[0-9\s\.\-\|\/\\@#\*\(\)（）]+$/.test(candidate);
-          if (isVisitType) {
-            if (!visitType) visitType = candidate;
-          } else if (hasChinese && isShort && !isDiagnosis && !isHeaderJunk && !isMostlyEnglish && !isJunkLine) {
+          if (isValidClinicName(candidate)) {
             source = candidate;
           }
         }
@@ -415,18 +418,18 @@ function preprocessOcrText(rawText) {
         }
       }
 
-      // 優先從本行直接擷取院所名稱（如「13 台北長庚 ...」）
+      // 優先從本行直接擷取符合醫療機構特徵的院所名稱（如「13 台北長庚 ...」）
       const stripped = leftPart.replace(/^\d+\s+/, '');
       const chineseWords = stripped.match(/[\u4e00-\u9fa5]+/g);
       if (chineseWords) {
         for (const word of chineseWords) {
-          if (word.length >= 2 && word.length <= 12 && !/^(門診|住診|藥局|急診)$/.test(word) && !/病|炎|症|癌|瘤|障礙|疾病|感染|損傷|骨折|慢性|急性|原發|多發|未明|高血壓|過敏|接觸|皮膚|性|乳房|女性|男性|部位|劑|藥|液|類|抗|固醇|疾患|二尖瓣|風濕|分泌|胃酸|機能|失調|腹痛|痛|昏|暈|衰竭|高血脂|糖尿|心臟|冠狀|胃潰瘍|氣喘|支氣管/.test(word) && !/項次|來源|主診斷|ATC3|複方|註記|成分|藥品|代碼|名稱|就醫|日期|慢連箋|領藥|住院|規格|用法|用量|給藥|日數|試算|單筆|餘藥|餘日|餘\s*人|筆\s*餘/.test(word)) {
+          if (isValidClinicName(word)) {
             source = word;
             break;
           }
         }
       }
-      if (!source && providerCode && (typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[providerCode])) {
+      if (providerCode && typeof window !== 'undefined' && window.PROVIDER_DB && window.PROVIDER_DB[providerCode]) {
         source = window.PROVIDER_DB[providerCode];
       }
 
